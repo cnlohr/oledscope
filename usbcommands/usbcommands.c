@@ -11,11 +11,11 @@
 
 #include "rv003usb.h"
 
-uint8_t scratch[255];
-int start_write = 0;
-int end_write = 0;
+uint8_t scratch[256];
+uint8_t scratch_head = 0;
+uint8_t scratch_tail = 0;
 
-#define NOPBYTE 0xff // 0xbc is correct.  FF is for debugging.
+#define NOPBYTE 0xbb
 
 // Reads in on rising clock, MSB first.
 
@@ -28,7 +28,7 @@ int end_write = 0;
 // This determines the time between updates
 #define SPI_DIVISOR 2 // Smaller = faster.
 #define TIMER_DIVISOR 2 // Smaller = faster
-#define DMA_BUFFER_LEN  32 // Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
+#define DMA_BUFFER_LEN  28 // Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
 
 // This is the buffer of points to go to.
 #define NUM_CHAIN_ENTRIES 128
@@ -38,31 +38,21 @@ uint32_t chain_data[NUM_CHAIN_ENTRIES];
 
 static void FillSPIPayload( uint8_t * buffer )
 {
-	if( start_write )
+	uint8_t remain = scratch_head - scratch_tail;
+	if( remain > 1 )
 	{
 		// Create grid to brr as fast as possible.
-		buffer[1] = 0xdc;
-		buffer[0] = scratch[end_write++] & 0x7f;//(ict >> 7) & 0x7f;
-		buffer[3] = 0xd3;
-		buffer[2] = scratch[end_write++] & 0x7f;
-
-/*
-	// Create grid to brr as fast as possible.
-	static uint32_t ict = 7677;
-		buffer[1] = 0xdc;
-		buffer[0] = (ict >> 7) & 0x7f;
-		buffer[3] = 0xd3;
-		buffer[2] = ict & 0x7f;
-	ict++;
-*/
-
-		if( end_write > start_write ) { start_write = 0; end_write = 0; return; }
+		buffer[1] = 0xd3;
+		buffer[0] = scratch[scratch_tail] & 0x7f;
+		buffer[3] = 0xdc;
+		buffer[2] = scratch[scratch_tail] & 0x7f;//(ict >> 7) & 0x7f;;
+		scratch_tail += 2;
 	}
 	else
 	{
-		buffer[1] = 0xdc;
+		buffer[1] = 0xd3;
 		buffer[0] = 5;
-		buffer[3] = 0xd3;
+		buffer[3] = 0xdc;
 		buffer[2] = 5;
 	}
 }
@@ -147,6 +137,7 @@ int main()
 
 		0xd9, 0xff, // Override brightness.
 		0x81, 0xff, // Set constrast
+		0xdb, 0xff, // Set vcomh
 
 		0xaf, // Display on.
 	};
@@ -207,6 +198,8 @@ int main()
 	SendCommand( 0, force_two_row_mode, sizeof( force_two_row_mode ) );
 
 	memset( spi_payload, NOPBYTE, sizeof( spi_payload ) );
+	spi_payload[1] = 0xdc;
+	spi_payload[0] = 0;
 
 	OLED_PIN_TO( OLED_CLOCK, 0 )
 	OLED_PIN_TO( OLED_DC, 0 )
@@ -253,15 +246,11 @@ int main()
 		DMA_DIR_PeripheralDST |
 		0;//DMA_IT_TC | DMA_IT_HT; // Transmission Complete + Half Empty Interrupts. 
 
-	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
-	
-	
-
 //uint8_t [DMA_BUFFER_LEN];
 //uint32_t chain_data[32];
 
 	//DMA1_Channel3 is for SPI1TX
-	DMA1_Channel2->PADDR = (uint32_t)spi_payload;
+	DMA1_Channel2->PADDR = ((uint32_t)(spi_payload)) + 4;
 	DMA1_Channel2->MADDR = (uint32_t)chain_data;
 	DMA1_Channel2->CFGR  =
 		DMA_M2M_Disable |		 
@@ -287,14 +276,18 @@ int main()
 	TIM1->SWEVGR |= TIM_UG;
 	TIM1->CCER |= TIM_CC1E;
 	TIM1->CHCTLR1 |= TIM_OC1M_2 | TIM_OC1M_1;
-	TIM1->CH1CVR = 128; // Trigger midway through.
+	TIM1->CH1CVR = DMA_BUFFER_LEN/2; // Trigger midway through.
 	TIM1->BDTR |= TIM_MOE;
 	TIM1->CTLR1 |= TIM_CEN;	
 	TIM1->DMAINTENR = TIM_TDE | TIM_COMDE | TIM_UDE | TIM_CC1DE;
 
+	// Starting shifting out frames.
+	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
+
+
 	for( i = 0; i < NUM_CHAIN_ENTRIES; i++ )
 	{
-		FillSPIPayload( &chain_data[i] );
+		FillSPIPayload( (uint8_t*)&chain_data[i] );
 	}
 	
 	int head = 0;
@@ -313,7 +306,7 @@ int main()
 			if( delta < 2 )
 				break;
 
-			FillSPIPayload( &chain_data[head] );
+			FillSPIPayload( (uint8_t*)&chain_data[head] );
 			head = (head+1)%NUM_CHAIN_ENTRIES;
 		} while( 1 );
 		//printf( "SR: %d\n", start_write );
@@ -343,35 +336,53 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 }
 */
 
+static uint32_t first_byte = 0;
+
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	//LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
-	int offset = e->count<<3;
-	int torx = e->max_len - offset;
-	if( torx > len ) torx = len;
-	if( torx > 0 )
+	//int offset = e->count<<3;
+	//int torx = e->max_len - offset;
+	//if( torx > len ) torx = len;
+	//if( torx > 0 )
 	{
-		memcpy( scratch + offset, data, torx );
+		int i;
+		int available = (uint8_t)(scratch_tail - scratch_head - 1);
+
 		e->count++;
-		if( ( e->count << 3 ) >= e->max_len )
+		uint8_t * dataend = data + len;
+
+		// The first byte is the report ID.
+		if( first_byte && len )
 		{
-			// ready to go.
-			start_write = e->max_len;
+			data++;
+			first_byte = 0;
+		}
+
+		while( data != dataend )
+		{
+			scratch[scratch_head++] = *(data++);
+		}
+
+		if( available < 16 )
+		{
+			usb_send_data( 0, 0, 2, 0x5A ); // Send NACK (can't accept any more data right now)
+			return;
 		}
 	}
+	usb_send_data( 0, 0, 2, 0xD2 ); // Send ACK
+	return;
 }
 
 void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
-	e->opaque = scratch;
+	e->opaque = 0;
 	e->max_len = 0; // get report not supported yet.
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
-	e->max_len = reqLen;
+	scratch_head &= ~2; // Force each frame to be aligned to word-pair
+	first_byte = 1;
 }
 
 

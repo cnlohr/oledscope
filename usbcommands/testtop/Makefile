@@ -1,10 +1,7 @@
-all : testtop ledtest
+all : testtop
 
 testtop : testtop.c
-	gcc -o $@ $^ -I../../ch32v003fun/minichlink -ludev
-
-ledtest : ledtest.c
-	gcc -o $@ $^ -I../../ch32v003fun/minichlink -ludev
+	gcc -o $@ $^ -I../../rv003usb/ch32v003fun/minichlink -ludev -lm
 
 clean :
 	rm -rf *.o *~ testtop ledtest

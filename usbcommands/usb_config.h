@@ -16,6 +16,7 @@
 #define RV003USB_OTHER_CONTROL     1
 #define RV003USB_HANDLE_USER_DATA  1
 #define RV003USB_HID_FEATURES      1
+#define RV003USB_USER_DATA_HANDLES_TOKEN 1  // Enable only with RV003USB_HANDLE_USER_DATA, if handling function services token replies (nak/ack).
 
 
 #ifndef __ASSEMBLER__
