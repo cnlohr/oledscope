@@ -15,7 +15,7 @@ uint8_t scratch[256];
 uint8_t scratch_head = 0;
 uint8_t scratch_tail = 0;
 
-#define NOPBYTE 0xbb
+#define NOPBYTE 0xff
 
 // Reads in on rising clock, MSB first.
 
@@ -50,10 +50,12 @@ static void FillSPIPayload( uint8_t * buffer )
 	}
 	else
 	{
+		static uint32_t ctr;
+		ctr++;
 		buffer[1] = 0xd3;
-		buffer[0] = 5;
+		buffer[0] = (ctr&1)?50:5; //ctr;
 		buffer[3] = 0xdc;
-		buffer[2] = 5;
+		buffer[2] = (ctr&1)?50:5;
 	}
 }
 
@@ -268,21 +270,19 @@ int main()
 	// Setup DMA Channel 2 to refill buffer.
 	// It's hooked to TIM1 CH1.
 
+
+	// Starting shifting out frames.
+	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
+
 	// Reset TIM1 to init all regs
 	RCC->APB2PRSTR |= RCC_APB2Periph_TIM1;
 	RCC->APB2PRSTR &= ~RCC_APB2Periph_TIM1;
 	TIM1->PSC = 16<<TIMER_DIVISOR;
-	TIM1->ATRLR = DMA_BUFFER_LEN;
-	TIM1->SWEVGR |= TIM_UG;
-	TIM1->CCER |= TIM_CC1E;
-	TIM1->CHCTLR1 |= TIM_OC1M_2 | TIM_OC1M_1;
+	TIM1->ATRLR = DMA_BUFFER_LEN-1;
+	TIM1->CCER = TIM_CC1E;
 	TIM1->CH1CVR = DMA_BUFFER_LEN/2; // Trigger midway through.
-	TIM1->BDTR |= TIM_MOE;
-	TIM1->CTLR1 |= TIM_CEN;	
-	TIM1->DMAINTENR = TIM_TDE | TIM_COMDE | TIM_UDE | TIM_CC1DE;
-
-	// Starting shifting out frames.
-	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
+	TIM1->CTLR1 = TIM_CEN;	
+	TIM1->DMAINTENR = TIM_CC1DE;
 
 
 	for( i = 0; i < NUM_CHAIN_ENTRIES; i++ )
