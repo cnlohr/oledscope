@@ -10,6 +10,9 @@
 #define OLED_CS 2
 #define OLED_RST 1
 
+
+#define NOPBYTE 0xbc
+
 // Reads in on rising clock, MSB first.
 
 #define LOCAL_CONCAT( A, B) A##B
@@ -19,18 +22,30 @@
 #define OLED_PIN_TO( port, value ) { OLEDGPIO->BSHR = 1<<((!(value))*16 + (port)); }
 
 
-#define DMA_BUFFER_LEN  128
+#define DMA_BUFFER_LEN  64
 
 uint8_t spi_payload[DMA_BUFFER_LEN];
 
 static void FillSPIPayload( uint8_t * buffer, int size, int pingorpong )
 {
-	
-	static int x = 128, y = 0;
+#if 1
+	// Create grid to brr as fast as possible.
+	static uint32_t ict = 0;
+		buffer[1] = 0xdc;
+		buffer[0] = (ict >> 7) & 0x7f;
+		buffer[3] = 0xd3;
+		buffer[2] = ict & 0x7f;
+	ict++;
+
+#else
+	static int x = 128*65536, y = 0;
 	static int yspeed = 1;
 	static int yspeed_direction = 0;
 	static int ofs = 0;
+
 	{
+		//
+
 		//ofs += 128;
 		//SetPixelTo( sintable127[((x>>16)+ofs)&0x1ff], sintable127[((y>>16)+ofs)&0x1ff] );
 
@@ -44,22 +59,27 @@ static void FillSPIPayload( uint8_t * buffer, int size, int pingorpong )
 		*/
 
 		buffer[1] = 0xdc;
-		buffer[0] = 0;
+		buffer[0] = sintable127[((x>>16)+ofs)&0x1ff];
 		buffer[3] = 0xd3;
-		buffer[2] = y;
+		buffer[2] = sintable127[((y>>16)+ofs)&0x1ff];
 		buffer[5] = 0xdc;
-		buffer[4] = x;
+		buffer[4] = sintable127[((x>>16)+ofs)&0x1ff];
 
 		x+=65536; y += yspeed;
 
+		#if 1
 		if( yspeed_direction == 0 )
 			yspeed++;
 		else
 			yspeed--;
 		if( yspeed == 262144 ) yspeed_direction = 1;
 		if( yspeed == 1 ) yspeed_direction = 0;
-	}
 
+		#else
+			yspeed = 65536;
+		#endif
+	}
+#endif
 }
 
 
@@ -100,13 +120,15 @@ void DMA1_Channel3_IRQHandler( void )
 static void WriteByte( uint32_t byte )
 {
 	int i;
-	for( i = 0; i < 8; i++ )
+	for( i = 0; i < 8; )
 	{
 		OLEDGPIO->BCR = 1<<OLED_CLOCK;
 		OLED_PIN_TO( OLED_DATA, byte & 0x80 )
 		byte <<= 1;
+		i++;
 		OLEDGPIO->BSHR = 1<<OLED_CLOCK;
 	}
+	OLEDGPIO->BCR = 1<<OLED_CLOCK;
 }
 
 static void SendCommand( uint32_t is_data, const uint8_t * data, int len )
@@ -151,14 +173,15 @@ void HWSPI_INIT( )
 	SPI1->CTLR1 = 
 		SPI_NSS_Soft | SPI_CPHA_1Edge | SPI_CPOL_Low | SPI_DataSize_16b |
 		SPI_Mode_Master | SPI_Direction_1Line_Tx |
-		4<<3; // Divisior = 16 (48/16 = 3MHz)
+		2<<3; // Divisior = 16 (3<<3) (48/16 = 3MHz) 
+			// Divisor  = 8 (2<<3) (48/8) = 6MHz
 
 	SPI1->CTLR2 = SPI_CTLR2_TXDMAEN;
 	SPI1->HSCR = 1;
 
 	SPI1->CTLR1 |= CTLR1_SPE_Set;
 
-	SPI1->DATAR = 0xffff; // Start by sending nops..
+	//SPI1->DATAR = (NOPBYTE) | ((NOPBYTE)<<8); // Start by sending nops..
 
 	//DMA1_Channel3 is for SPI1TX
 	DMA1_Channel3->PADDR = (uint32_t)&SPI1->DATAR;
@@ -166,7 +189,8 @@ void HWSPI_INIT( )
 	DMA1_Channel3->CNTR  = 0;// sizeof( bufferset )/2; // Number of unique copies.  (Don't start, yet!)
 	DMA1_Channel3->CFGR  =
 		DMA_M2M_Disable |		 
-		DMA_Priority_VeryHigh |
+		//DMA_Priority_VeryHigh |
+		DMA_Priority_Low |
 		DMA_MemoryDataSize_HalfWord |
 		DMA_PeripheralDataSize_HalfWord |
 		DMA_MemoryInc_Enable |
@@ -196,7 +220,7 @@ void HWSPI_START()
 
 	FillSPIPayload( spi_payload, DMA_BUFFER_LEN, 0 );
 
-	DMA1_Channel3->CNTR = DMA_BUFFER_LEN; // Number of unique uint16_t entries.
+	DMA1_Channel3->CNTR = DMA_BUFFER_LEN/2; // Number of unique uint16_t entries.
 	DMA1_Channel3->CFGR |= DMA_Mode_Circular;
 }
 
@@ -241,9 +265,9 @@ int main()
 		0x81, 0x6f, // Set constrast
 		0x21, // Set memory addressing mode
 		0xa4, // normal (as opposed to invert colors, always on or off.)
-		0xa8, 0x7f, // Multiplex Ratio, duty 1/64
+		0xa8, 0x7f, // Iterate over all 128 rows (Multiplex Ratio)
 		0xd3, 0x00, // Set display offset // Where this appears on-screen  (Some displays will be different)
-		0xd5, 0x70, // Set precharge properties.  THIS IS A LIE  This has todo with timing.
+		0xd5, 0xf0, // Set precharge properties.  THIS IS A LIE  This has todo with timing.  <<< This makes it go brrrrrrrrr
 		0xd9, 0x1d, // Set pre-charge period  (This controls brightness)
 		0xdb, 0x35, // Set vcomh
 		0xad, 0x80, // Set Charge pump
@@ -255,10 +279,24 @@ int main()
 		0xaf, // Display on.
 	};
 	SendCommand( 0, commands, sizeof( commands ) );
-	Delay_Ms( 250 );
+	Delay_Ms( 2 );
+	
+	// NOTES ABOUT D5 / D9 -> D5 seems primary clock and divisor control.  D9-> Some other tuning.
+	// DC -> ???? changing this seems to cause display to disable frequently.
+	
+	// Searching for some sort of "GO BRRR" flag.
+	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd5, 0xf0}, 4 );
+	Delay_Ms( 2 );
+	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd9, 0xf0}, 4 );
+	Delay_Ms( 2 );
+	
+	// With the above, it looks like there's about 16k points per second.
 
-	// XXX TODO: b0/dc does somettthinggg weeeeirddd
+	//SendCommand( 0, (uint8_t[]){0xb6, 0xf0}, 2 );
+	//Delay_Ms( 2 );
 
+
+	// XXX TODO: b0/dc does somettthinggg weeeeirdd
 
 	// Force display on.
 	if( 0 )
@@ -284,17 +322,17 @@ int main()
 		if( pxloc >= 0 )
 		{
 			data[pxloc>>3] = 1<<(pxloc&7);
-			data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);
+			//data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);
 		}
 		SendCommand( 1, data, sizeof( data ) );
 	}
 
 	uint8_t force_two_row_mode[] = {
-		0xa8, 20, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
+		0xa8, 0, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
 	};
 	SendCommand( 0, force_two_row_mode, sizeof( force_two_row_mode ) );
 
-	memset( spi_payload, 0xFf, sizeof( spi_payload ) );
+	memset( spi_payload, NOPBYTE, sizeof( spi_payload ) );
 
 	OLED_PIN_TO( OLED_CLOCK, 0 )
 	OLED_PIN_TO( OLED_DC, 0 )

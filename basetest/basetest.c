@@ -15,18 +15,20 @@
 #define LOCAL_EXP_CONCATENATOR(A, B) LOCAL_CONCAT(A,B)
 #define OLEDGPIO LOCAL_EXP_CONCATENATOR(GPIO, OLED_PORT)
 
-#define OLED_PIN_TO( port, value ) { OLEDGPIO->BSHR = 1<<((!(value))*16 + (port)); }
+#define OLED_PIN_TO( port, value ) { OLEDGPIO->BSHR = 1<<(((!(value))<<4) + (port)); }
 
 static void WriteByte( uint32_t byte )
 {
 	int i;
-	for( i = 0; i < 8; i++ )
+	for( i = 0; i < 8; )
 	{
 		OLEDGPIO->BCR = 1<<OLED_CLOCK;
 		OLED_PIN_TO( OLED_DATA, byte & 0x80 )
 		byte <<= 1;
+		i++;
 		OLEDGPIO->BSHR = 1<<OLED_CLOCK;
 	}
+	OLEDGPIO->BCR = 1<<OLED_CLOCK;
 }
 
 static void SendCommand( uint32_t is_data, const uint8_t * data, int len )
@@ -139,7 +141,7 @@ int main()
 	}
 
 	uint8_t force_two_row_mode[] = {
-		0xa8, 1, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
+		0xa8, 20, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
 	};
 	SendCommand( 0, force_two_row_mode, sizeof( force_two_row_mode ) );
 
