@@ -1,7 +1,6 @@
 #include "ch32v003fun.h"
 #include <stdio.h>
 #include <string.h>
-#include "sintable.h"
 
 #define OLED_PORT C
 #define OLED_DATA 6
@@ -10,6 +9,11 @@
 #define OLED_CS 2
 #define OLED_RST 1
 
+#include "rv003usb.h"
+
+uint8_t scratch[255];
+int start_write = 0;
+int end_write = 0;
 
 #define NOPBYTE 0xff // 0xbc is correct.  FF is for debugging.
 
@@ -27,14 +31,22 @@
 #define DMA_BUFFER_LEN  32 // Write out this many command bytes per pixel location change.
 
 // This is the buffer of points to go to.
-#define NUM_CHAIN_ENTRIES 256
+#define NUM_CHAIN_ENTRIES 128
 
 uint8_t spi_payload[DMA_BUFFER_LEN];
 uint32_t chain_data[NUM_CHAIN_ENTRIES];
 
 static void FillSPIPayload( uint8_t * buffer )
 {
-#if 1
+	if( start_write )
+	{
+		// Create grid to brr as fast as possible.
+		buffer[1] = 0xdc;
+		buffer[0] = scratch[end_write++] & 0x7f;//(ict >> 7) & 0x7f;
+		buffer[3] = 0xd3;
+		buffer[2] = scratch[end_write++] & 0x7f;
+
+/*
 	// Create grid to brr as fast as possible.
 	static uint32_t ict = 7677;
 		buffer[1] = 0xdc;
@@ -42,50 +54,17 @@ static void FillSPIPayload( uint8_t * buffer )
 		buffer[3] = 0xd3;
 		buffer[2] = ict & 0x7f;
 	ict++;
+*/
 
-#else
-	static int x = 128*65536, y = 0;
-	static int yspeed = 1;
-	static int yspeed_direction = 0;
-	static int ofs = 0;
-
-	{
-		//
-
-		//ofs += 128;
-		//SetPixelTo( sintable127[((x>>16)+ofs)&0x1ff], sintable127[((y>>16)+ofs)&0x1ff] );
-
-		/*
-			uint8_t ramgo[] = {
-				0xdc, 0,
-				0xd3, y,
-				0xdc, x,
-				0xbb, 0xbb,
-			};
-		*/
-		
-		buffer[1] = 0xdc;
-		buffer[0] = sintable127[((x>>16)+ofs)&0x1ff];
-		buffer[3] = 0xd3;
-		buffer[2] = sintable127[((y>>16)+ofs)&0x1ff];
-//		buffer[5] = 0xdc;
-//		buffer[4] = sintable127[((x>>16)+ofs)&0x1ff];
-
-		x+=65536; y += yspeed;
-
-		#if 1
-		if( yspeed_direction == 0 )
-			yspeed++;
-		else
-			yspeed--;
-		if( yspeed == 262144 ) yspeed_direction = 1;
-		if( yspeed == 1 ) yspeed_direction = 0;
-
-		#else
-			yspeed = 65536;
-		#endif
+		if( end_write > start_write ) { start_write = 0; end_write = 0; return; }
 	}
-#endif
+	else
+	{
+		buffer[1] = 0xdc;
+		buffer[0] = 5;
+		buffer[3] = 0xd3;
+		buffer[2] = 5;
+	}
 }
 
 
@@ -124,6 +103,7 @@ int main()
 	RCC->APB2PCENR |= LOCAL_EXP_CONCATENATOR( RCC_APB2Periph_GPIO, OLED_PORT );
 	RCC->APB2PCENR |= RCC_APB2Periph_TIM1;
 
+	usb_setup();
 
 	OLEDGPIO->CFGLR &= ~
 		(
@@ -216,13 +196,13 @@ int main()
 			
 			// Make width double wide (to get some more brightness)
 			data[pxloc>>3] = 1<<(pxloc&7);
-			data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);  
+			//data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);  
 		}
 		SendCommand( 1, data, sizeof( data ) );
 	}
 
 	uint8_t force_two_row_mode[] = {
-		0xa8, 0, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
+		0xa8, 0, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)  You can make this 1 for wider.
 	};
 	SendCommand( 0, force_two_row_mode, sizeof( force_two_row_mode ) );
 
@@ -265,7 +245,6 @@ int main()
 	DMA1_Channel3->CNTR = DMA_BUFFER_LEN/2; // Number of unique uint16_t entries.
 	DMA1_Channel3->CFGR  =
 		DMA_M2M_Disable |		 
-		//DMA_Priority_VeryHigh |
 		DMA_Priority_Low |
 		DMA_MemoryDataSize_HalfWord |
 		DMA_PeripheralDataSize_HalfWord |
@@ -297,7 +276,6 @@ int main()
 	DMA1_Channel2->CFGR |= DMA_CFGR1_EN;
 	DMA1_Channel2->CNTR = NUM_CHAIN_ENTRIES; // Number of unique uint32_t entries.
 
-
 	// Setup DMA Channel 2 to refill buffer.
 	// It's hooked to TIM1 CH1.
 
@@ -323,7 +301,12 @@ int main()
 	int delta;
 	while(1)
 	{
-
+		uint32_t * ue = GetUEvent();
+		if( ue )
+		{
+			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
+		}
+		
 		do
 		{
 			delta = ( NUM_CHAIN_ENTRIES * 2 - DMA1_Channel2->CNTR - head ) % NUM_CHAIN_ENTRIES;
@@ -333,6 +316,68 @@ int main()
 			FillSPIPayload( &chain_data[head] );
 			head = (head+1)%NUM_CHAIN_ENTRIES;
 		} while( 1 );
-		Delay_Ms(4);
+		//printf( "SR: %d\n", start_write );
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
+{
+	// Make sure we only deal with control messages.  Like get/set feature reports.
+	if( endp )
+	{
+		usb_send_empty( sendtok );
+	}
+}
+*/
+
+void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
+{
+	//LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
+	int offset = e->count<<3;
+	int torx = e->max_len - offset;
+	if( torx > len ) torx = len;
+	if( torx > 0 )
+	{
+		memcpy( scratch + offset, data, torx );
+		e->count++;
+		if( ( e->count << 3 ) >= e->max_len )
+		{
+			// ready to go.
+			start_write = e->max_len;
+		}
+	}
+}
+
+void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
+{
+	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
+	e->opaque = scratch;
+	e->max_len = reqLen;
+}
+
+void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
+{
+	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
+	e->max_len = reqLen;
+}
+
+
+void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s, struct rv003usb_internal * ist )
+{
+	LogUEvent( SysTick->CNT, s->wRequestTypeLSBRequestMSB, s->lValueLSBIndexMSB, s->wLength );
+}
+
+
