@@ -11,7 +11,7 @@
 #define OLED_RST 1
 
 
-#define NOPBYTE 0xbc
+#define NOPBYTE 0xff // 0xbc is correct.  FF is for debugging.
 
 // Reads in on rising clock, MSB first.
 
@@ -21,16 +21,22 @@
 
 #define OLED_PIN_TO( port, value ) { OLEDGPIO->BSHR = 1<<((!(value))*16 + (port)); }
 
+// This determines the time between updates
+#define SPI_DIVISOR 1 // Smaller = faster.
+#define TIMER_DIVISOR 1 // Smaller = faster
+#define DMA_BUFFER_LEN  48 // Write out this many command bytes per pixel location change.
 
-#define DMA_BUFFER_LEN  120
+// This is the buffer of points to go to.
+#define NUM_CHAIN_ENTRIES 256
 
 uint8_t spi_payload[DMA_BUFFER_LEN];
+uint32_t chain_data[NUM_CHAIN_ENTRIES];
 
-static void FillSPIPayload( uint8_t * buffer, int size, int pingorpong )
+static void FillSPIPayload( uint8_t * buffer )
 {
 #if 0
 	// Create grid to brr as fast as possible.
-	static uint32_t ict = 0;
+	static uint32_t ict = 7677;
 		buffer[1] = 0xdc;
 		buffer[0] = (ict >> 7) & 0x7f;
 		buffer[3] = 0xd3;
@@ -57,13 +63,13 @@ static void FillSPIPayload( uint8_t * buffer, int size, int pingorpong )
 				0xbb, 0xbb,
 			};
 		*/
-
+		
 		buffer[1] = 0xdc;
-		buffer[0] = 0;//sintable127[((x>>16)+ofs)&0x1ff];
+		buffer[0] = sintable127[((x>>16)+ofs)&0x1ff];
 		buffer[3] = 0xd3;
 		buffer[2] = sintable127[((y>>16)+ofs)&0x1ff];
-		buffer[5] = 0xdc;
-		buffer[4] = sintable127[((x>>16)+ofs)&0x1ff];
+//		buffer[5] = 0xdc;
+//		buffer[4] = sintable127[((x>>16)+ofs)&0x1ff];
 
 		x+=65536; y += yspeed;
 
@@ -81,40 +87,6 @@ static void FillSPIPayload( uint8_t * buffer, int size, int pingorpong )
 	}
 #endif
 }
-
-
-void DMA1_Channel3_IRQHandler( void ) __attribute__((interrupt));
-void DMA1_Channel3_IRQHandler( void ) 
-{
-	//GPIOD->BSHR = 1;	 // Turn on GPIOD0 for profiling
-
-	// Backup flags.
-	volatile int intfr = DMA1->INTFR;
-	do
-	{
-		// Clear all possible flags.
-		DMA1->INTFCR = DMA1_IT_GL3;
-
-		// Strange note: These are backwards.  DMA1_IT_HT3 should be HALF and
-		// DMA1_IT_TC3 should be COMPLETE.  But for some reason, doing this causes
-		// LED jitter.  I am henseforth flipping the order.
-
-		if( intfr & DMA1_IT_HT3 )
-		{
-			// Halfwaay (Fill in first part)
-			FillSPIPayload( spi_payload, DMA_BUFFER_LEN / 2, 1 );
-		}
-		if( intfr & DMA1_IT_TC3 )
-		{
-			// Complete (Fill in second part)
-			FillSPIPayload( spi_payload + DMA_BUFFER_LEN / 2, DMA_BUFFER_LEN / 2, 0 );
-		}
-		intfr = DMA1->INTFR;
-	} while( intfr );
-
-	//GPIOD->BSHR = 1<<16; // Turn off GPIOD0 for profiling
-}
-
 
 
 static void WriteByte( uint32_t byte )
@@ -143,95 +115,15 @@ static void SendCommand( uint32_t is_data, const uint8_t * data, int len )
 	OLED_PIN_TO( OLED_CS, 1 )
 }
 
-void SetPixelTo( int x, int y )
-{
-	uint8_t ramgo[] = {
-		0xdc, 0,
-		0xd3, y,
-		0xdc, x,
-	};
-	SendCommand( 0, ramgo, sizeof( ramgo ) );
-}
-
-
-
-void HWSPI_INIT( )
-{
-	// Enable DMA + Peripherals
-	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
-	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
-
-	// MOSI, Configure GPIO Pin
-	GPIOC->CFGLR &= ~(0xf<<(4*OLED_DATA));
-	GPIOC->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP_AF)<<(4*OLED_DATA);
-
-	GPIOC->CFGLR &= ~(0xf<<(4*OLED_CLOCK));
-	GPIOC->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP_AF)<<(4*OLED_CLOCK);
-
-
-	// Configure SPI 
-	SPI1->CTLR1 = 
-		SPI_NSS_Soft | SPI_CPHA_1Edge | SPI_CPOL_Low | SPI_DataSize_16b |
-		SPI_Mode_Master | SPI_Direction_1Line_Tx |
-		2<<3; // Divisior = 16 (3<<3) (48/16 = 3MHz) 
-			// Divisor  = 8 (2<<3) (48/8) = 6MHz
-
-	SPI1->CTLR2 = SPI_CTLR2_TXDMAEN;
-	SPI1->HSCR = 1;
-
-	SPI1->CTLR1 |= CTLR1_SPE_Set;
-
-	//SPI1->DATAR = (NOPBYTE) | ((NOPBYTE)<<8); // Start by sending nops..
-
-	//DMA1_Channel3 is for SPI1TX
-	DMA1_Channel3->PADDR = (uint32_t)&SPI1->DATAR;
-	DMA1_Channel3->MADDR = (uint32_t)spi_payload;
-	DMA1_Channel3->CNTR  = 0;// sizeof( bufferset )/2; // Number of unique copies.  (Don't start, yet!)
-	DMA1_Channel3->CFGR  =
-		DMA_M2M_Disable |		 
-		//DMA_Priority_VeryHigh |
-		DMA_Priority_Low |
-		DMA_MemoryDataSize_HalfWord |
-		DMA_PeripheralDataSize_HalfWord |
-		DMA_MemoryInc_Enable |
-		DMA_Mode_Normal | // OR DMA_Mode_Circular or DMA_Mode_Normal
-		DMA_DIR_PeripheralDST |
-		DMA_IT_TC | DMA_IT_HT; // Transmission Complete + Half Empty Interrupts. 
-
-//	NVIC_SetPriority( DMA1_Channel3_IRQn, 0<<4 ); //We don't need to tweak priority.
-	NVIC_EnableIRQ( DMA1_Channel3_IRQn );
-	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
-
-#ifdef WS2812B_ALLOW_INTERRUPT_NESTING
-	__set_INTSYSCR( __get_INTSYSCR() | 2 ); // Enable interrupt nesting.
-	PFIC->IPRIOR[24] = 0b10000000; // Turn on preemption for DMA1Ch3
-#endif
-}
-
-
-void HWSPI_START()
-{
-	// Enter critical section.
-	__disable_irq();
-	DMA1_Channel3->CFGR &= ~DMA_Mode_Circular;
-	DMA1_Channel3->CNTR  = 0;
-	DMA1_Channel3->MADDR = (uint32_t)spi_payload;
-	__enable_irq();
-
-	FillSPIPayload( spi_payload, DMA_BUFFER_LEN, 0 );
-
-	DMA1_Channel3->CNTR = DMA_BUFFER_LEN/2; // Number of unique uint16_t entries.
-	DMA1_Channel3->CFGR |= DMA_Mode_Circular;
-}
-
 
 
 int main()
 {
 	SystemInit();
 
-	// Enable GPIOs
 	RCC->APB2PCENR |= LOCAL_EXP_CONCATENATOR( RCC_APB2Periph_GPIO, OLED_PORT );
+	RCC->APB2PCENR |= RCC_APB2Periph_TIM1;
+
 
 	OLEDGPIO->CFGLR &= ~
 		(
@@ -321,8 +213,10 @@ int main()
 		int pxloc = i-2;
 		if( pxloc >= 0 )
 		{
+			
+			// Make width double wide (to get some more brightness)
 			data[pxloc>>3] = 1<<(pxloc&7);
-			data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);
+			data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);  
 		}
 		SendCommand( 1, data, sizeof( data ) );
 	}
@@ -337,45 +231,108 @@ int main()
 	OLED_PIN_TO( OLED_CLOCK, 0 )
 	OLED_PIN_TO( OLED_DC, 0 )
 	OLED_PIN_TO( OLED_CS, 0 )
-	HWSPI_INIT();
-	HWSPI_START();
 
-	while(1);
 
-/*
-	int x = 128, y = 0;
-	int yspeed = 1;
-	int yspeed_direction = 0;
-	int ofs = 0;
+	// Enable DMA + Peripherals
+	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
+	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
+
+	// MOSI, Configure GPIO Pin
+	GPIOC->CFGLR &= ~(0xf<<(4*OLED_DATA));
+	GPIOC->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP_AF)<<(4*OLED_DATA);
+
+	GPIOC->CFGLR &= ~(0xf<<(4*OLED_CLOCK));
+	GPIOC->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP_AF)<<(4*OLED_CLOCK);
+
+
+	// Configure SPI 
+	SPI1->CTLR1 = 
+		SPI_NSS_Soft | SPI_CPHA_1Edge | SPI_CPOL_Low | SPI_DataSize_16b |
+		SPI_Mode_Master | SPI_Direction_1Line_Tx |
+		((SPI_DIVISOR)<<3); // Divisior = 16 (3<<3) (48/16 = 3MHz) 
+			// Divisor  = 8 (2<<3) (48/8) = 6MHz
+
+	SPI1->CTLR2 = SPI_CTLR2_TXDMAEN;
+	SPI1->HSCR = 1;
+
+	SPI1->CTLR1 |= CTLR1_SPE_Set;
+
+	//SPI1->DATAR = (NOPBYTE) | ((NOPBYTE)<<8); // Start by sending nops..
+
+	//DMA1_Channel3 is for SPI1TX
+	DMA1_Channel3->PADDR = (uint32_t)&SPI1->DATAR;
+	DMA1_Channel3->MADDR = (uint32_t)spi_payload;
+	DMA1_Channel3->CNTR = DMA_BUFFER_LEN/2; // Number of unique uint16_t entries.
+	DMA1_Channel3->CFGR  =
+		DMA_M2M_Disable |		 
+		//DMA_Priority_VeryHigh |
+		DMA_Priority_Low |
+		DMA_MemoryDataSize_HalfWord |
+		DMA_PeripheralDataSize_HalfWord |
+		DMA_MemoryInc_Enable |
+		DMA_Mode_Circular | // OR DMA_Mode_Circular or DMA_Mode_Normal
+		DMA_DIR_PeripheralDST |
+		0;//DMA_IT_TC | DMA_IT_HT; // Transmission Complete + Half Empty Interrupts. 
+
+	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
+	
+	
+
+//uint8_t [DMA_BUFFER_LEN];
+//uint32_t chain_data[32];
+
+	//DMA1_Channel3 is for SPI1TX
+	DMA1_Channel2->PADDR = (uint32_t)spi_payload;
+	DMA1_Channel2->MADDR = (uint32_t)chain_data;
+	DMA1_Channel2->CFGR  =
+		DMA_M2M_Disable |		 
+		DMA_Priority_Low |
+		DMA_MemoryDataSize_Word |
+		DMA_PeripheralDataSize_Word |
+		DMA_MemoryInc_Enable |
+		DMA_Mode_Circular | // OR DMA_Mode_Circular or DMA_Mode_Normal
+		DMA_DIR_PeripheralDST |
+		0;//DMA_IT_TC | DMA_IT_HT; // Transmission Complete + Half Empty Interrupts. 
+
+	DMA1_Channel2->CFGR |= DMA_CFGR1_EN;
+	DMA1_Channel2->CNTR = NUM_CHAIN_ENTRIES; // Number of unique uint32_t entries.
+
+
+	// Setup DMA Channel 2 to refill buffer.
+	// It's hooked to TIM1 CH1.
+
+	// Reset TIM1 to init all regs
+	RCC->APB2PRSTR |= RCC_APB2Periph_TIM1;
+	RCC->APB2PRSTR &= ~RCC_APB2Periph_TIM1;
+	TIM1->PSC = 16<<TIMER_DIVISOR;
+	TIM1->ATRLR = DMA_BUFFER_LEN;
+	TIM1->SWEVGR |= TIM_UG;
+	TIM1->CCER |= TIM_CC1E;
+	TIM1->CHCTLR1 |= TIM_OC1M_2 | TIM_OC1M_1;
+	TIM1->CH1CVR = 128; // Trigger midway through.
+	TIM1->BDTR |= TIM_MOE;
+	TIM1->CTLR1 |= TIM_CEN;	
+	TIM1->DMAINTENR = TIM_TDE | TIM_COMDE | TIM_UDE | TIM_CC1DE;
+
+	for( i = 0; i < NUM_CHAIN_ENTRIES; i++ )
+	{
+		FillSPIPayload( &chain_data[i] );
+	}
+	
+	int head = 0;
+	int delta;
 	while(1)
 	{
-		//ofs += 128;
-		SetPixelTo( sintable127[((x>>16)+ofs)&0x1ff], sintable127[((y>>16)+ofs)&0x1ff] );
-		Delay_Us( 200 );
-		x+=65536; y += yspeed;
 
-		if( yspeed_direction == 0 )
-			yspeed++;
-		else
-			yspeed--;
-		if( yspeed == 262144 ) yspeed_direction = 1;
-		if( yspeed == 1 ) yspeed_direction = 0;
-	}
-*/
+retry:
+		delta = ( NUM_CHAIN_ENTRIES * 2 - DMA1_Channel2->CNTR - head ) % NUM_CHAIN_ENTRIES;
+		if( delta > 2 )
+		{
+			FillSPIPayload( &chain_data[head] );
+			head = (head+1)%NUM_CHAIN_ENTRIES;
+			goto retry;
+		}
 
-/*
-	while(1)
-	{
-		uint8_t update[] = {
-			0xa8, 1, // Set MUX ratio (Actually # of lines to scan) (But it's this + 1)
-			0xd3, 0,
-			0xdc, 0,
-		};
-		update[3] = i&0x7f;
-		update[5] = i&0x7f;
-		SendCommand( 0, update, sizeof( update ) );
-		Delay_Ms( 1 );
-		i++;
+
 	}
-*/
 }
