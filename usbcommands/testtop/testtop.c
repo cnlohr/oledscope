@@ -36,13 +36,13 @@ int main()
 	uint32_t elementno;
 
 //#define PAIRTEST
-//#define IIM_JULIA
-#define SIRPINSKI
+#define IIM_JULIA
+//#define SIRPINSKI
 #if defined( IIM_JULIA )
 	double zreal = 0.1;
 	double zimag = 0.1;
-	double creal = 0.4*2;
-	double cimag = 0.3*2;
+	double creal;
+	double cimag;
 #elif defined( SIRPINSKI )
 	double sirpx = (rand()%1000) / 1000.0;
 	double sirpy = (rand()%1000) / 1000.0;
@@ -53,8 +53,8 @@ int main()
 		buffer0[0] = 0xaa; // First byte must match the ID.
 
 #if defined( IIM_JULIA )
-		creal = sin( j/100.0 );
-		cimag = cos( j/100.0 );
+		creal = sin( j/100.0 )*1.0;
+		cimag = cos( j/100.0 )*1.0;
 #endif
 		// But we can fill in random for the rest.
 		for( i = 1; i < sizeof( buffer0 ); i+=2 )
@@ -63,15 +63,14 @@ int main()
 			buffer0[i+0] = (i&2)?50 : 20;
 			buffer0[i+1] = (i&2)?50 : 20;
 #elif defined( IIM_JULIA )
-			// z = sqrt( z - c );
-			// √(A + iB) = ± (Z+A2+ iB|B|Z-A2),
 
 			double real = zreal - creal;
 			double imag = zimag - cimag;
 
+			// Take square root of real & imag
 			double mag = sqrt( real * real + imag * imag );
-			zreal =                        sqrt( ( mag + real ) / 2.0 );
-			zimag = ((imag>=0)?1.0:-1.0) * sqrt( ( mag - real ) / 2.0 );
+			zreal =                         sqrt( ( mag + real ) / 2.0 );
+			zimag =  ((imag>=0)?1.0:-1.0) * sqrt( ( mag - real ) / 2.0 );
 			if( rand() & 1 )
 			{
 				zreal = -zreal;
