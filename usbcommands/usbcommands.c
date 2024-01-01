@@ -28,7 +28,7 @@ int end_write = 0;
 // This determines the time between updates
 #define SPI_DIVISOR 2 // Smaller = faster.
 #define TIMER_DIVISOR 2 // Smaller = faster
-#define DMA_BUFFER_LEN  32 // Write out this many command bytes per pixel location change.
+#define DMA_BUFFER_LEN  32 // Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
 
 // This is the buffer of points to go to.
 #define NUM_CHAIN_ENTRIES 128
@@ -365,7 +365,7 @@ void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint3
 {
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->opaque = scratch;
-	e->max_len = reqLen;
+	e->max_len = 0; // get report not supported yet.
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
