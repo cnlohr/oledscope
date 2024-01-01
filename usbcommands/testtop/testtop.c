@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 
 // We borrow the combined hidapi.c from minichlink.
 //
@@ -34,13 +35,14 @@ int main()
 
 	uint32_t elementno;
 
+//#define PAIRTEST
 //#define IIM_JULIA
-#define PAIRTEST
+#define SIRPINSKI
 #if defined( IIM_JULIA )
 	double zreal = 0.1;
 	double zimag = 0.1;
-	double creal = -0.1;
-	double cimag = 0.651;
+	double creal = 0.4*2;
+	double cimag = 0.3*2;
 #elif defined( SIRPINSKI )
 	double sirpx = (rand()%1000) / 1000.0;
 	double sirpy = (rand()%1000) / 1000.0;
@@ -50,13 +52,16 @@ int main()
 	{
 		buffer0[0] = 0xaa; // First byte must match the ID.
 
+#if defined( IIM_JULIA )
+		creal = sin( j/100.0 );
+		cimag = cos( j/100.0 );
+#endif
 		// But we can fill in random for the rest.
 		for( i = 1; i < sizeof( buffer0 ); i+=2 )
 		{
 #if defined( PAIRTEST )
 			buffer0[i+0] = (i&2)?50 : 20;
 			buffer0[i+1] = (i&2)?50 : 20;
-printf( "...\n" );
 #elif defined( IIM_JULIA )
 			// z = sqrt( z - c );
 			// √(A + iB) = ± (Z+A2+ iB|B|Z-A2),
@@ -65,8 +70,8 @@ printf( "...\n" );
 			double imag = zimag - cimag;
 
 			double mag = sqrt( real * real + imag * imag );
-			zreal = sqrt( ( mag + real ) / 2 );
-			zimag = ((imag>=0)?1.0:-1.0) * sqrt( ( mag - real ) / 2 );
+			zreal =                        sqrt( ( mag + real ) / 2.0 );
+			zimag = ((imag>=0)?1.0:-1.0) * sqrt( ( mag - real ) / 2.0 );
 			if( rand() & 1 )
 			{
 				zreal = -zreal;

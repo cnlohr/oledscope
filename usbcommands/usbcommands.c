@@ -16,6 +16,8 @@ uint8_t scratch_head = 0;
 uint8_t scratch_tail = 0;
 
 #define NOPBYTE 0xff
+#define DO_PIXEL_BLANKING
+#define NRPXW 2
 
 // Reads in on rising clock, MSB first.
 
@@ -43,19 +45,18 @@ static void FillSPIPayload( uint8_t * buffer )
 	{
 		// Create grid to brr as fast as possible.
 		buffer[1] = 0xd3;
-		buffer[0] = scratch[scratch_tail] & 0x7f;
+		buffer[0] = scratch[scratch_tail++] & 0x7f;
 		buffer[3] = 0xdc;
-		buffer[2] = scratch[scratch_tail] & 0x7f;//(ict >> 7) & 0x7f;;
-		scratch_tail += 2;
+		buffer[2] = scratch[scratch_tail++] & 0x7f;//(ict >> 7) & 0x7f;;
 	}
 	else
 	{
 		static uint32_t ctr;
 		ctr++;
 		buffer[1] = 0xd3;
-		buffer[0] = (ctr&1)?50:5; //ctr;
+		buffer[0] = (ctr&1)?6:4; //ctr;
 		buffer[3] = 0xdc;
-		buffer[2] = (ctr&1)?50:5;
+		buffer[2] = (ctr&1)?6:4;
 	}
 }
 
@@ -93,7 +94,7 @@ int main()
 	SystemInit();
 
 	RCC->APB2PCENR |= LOCAL_EXP_CONCATENATOR( RCC_APB2Periph_GPIO, OLED_PORT );
-	RCC->APB2PCENR |= RCC_APB2Periph_TIM1;
+	RCC->APB2PCENR |= RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOD; // PORT D for timer debugging
 
 	usb_setup();
 
@@ -117,7 +118,6 @@ int main()
 	Delay_Ms( 1 );
 	OLEDGPIO->BSHR = 1<<OLED_RST;
 	Delay_Ms( 1 );
-
 
 	// Initialize display.
 	const uint8_t commands[] = {
@@ -160,7 +160,6 @@ int main()
 	//SendCommand( 0, (uint8_t[]){0xb6, 0xf0}, 2 );
 	//Delay_Ms( 2 );
 
-
 	// XXX TODO: b0/dc does somettthinggg weeeeirdd
 
 	// Force display on.
@@ -183,13 +182,14 @@ int main()
 		SendCommand( 0, ramwriteprepare, sizeof( ramwriteprepare ) );
 		uint8_t data[16] = { 0 };
 
-		int pxloc = i-2;
+		int pxloc = i-NRPXW;
 		if( pxloc >= 0 )
 		{
 			
 			// Make width double wide (to get some more brightness)
-			data[pxloc>>3] = 1<<(pxloc&7);
-			//data[(pxloc+1)>>3] |= 1<<((pxloc+1)&7);  
+			int j;
+			for( j = 0; j < NRPXW; j++ )
+				data[(pxloc+j)>>3] |= 1<<((pxloc+j)&7);
 		}
 		SendCommand( 1, data, sizeof( data ) );
 	}
@@ -199,14 +199,16 @@ int main()
 	};
 	SendCommand( 0, force_two_row_mode, sizeof( force_two_row_mode ) );
 
+	// Fill out the buffer with some data.
 	memset( spi_payload, NOPBYTE, sizeof( spi_payload ) );
-	spi_payload[1] = 0xdc;
-	spi_payload[0] = 0;
+	#ifdef DO_PIXEL_BLANKING
+		spi_payload[1] = 0xdc; // This enables blanking.
+		spi_payload[0] = 0;
+	#endif
 
 	OLED_PIN_TO( OLED_CLOCK, 0 )
 	OLED_PIN_TO( OLED_DC, 0 )
 	OLED_PIN_TO( OLED_CS, 0 )
-
 
 	// Enable DMA + Peripherals
 	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
@@ -229,10 +231,8 @@ int main()
 
 	SPI1->CTLR2 = SPI_CTLR2_TXDMAEN;
 	SPI1->HSCR = 1;
-
 	SPI1->CTLR1 |= CTLR1_SPE_Set;
 
-	//SPI1->DATAR = (NOPBYTE) | ((NOPBYTE)<<8); // Start by sending nops..
 
 	//DMA1_Channel3 is for SPI1TX
 	DMA1_Channel3->PADDR = (uint32_t)&SPI1->DATAR;
@@ -277,13 +277,21 @@ int main()
 	// Reset TIM1 to init all regs
 	RCC->APB2PRSTR |= RCC_APB2Periph_TIM1;
 	RCC->APB2PRSTR &= ~RCC_APB2Periph_TIM1;
-	TIM1->PSC = 16<<TIMER_DIVISOR;
-	TIM1->ATRLR = DMA_BUFFER_LEN-1;
+	TIM1->PSC = 1;
+	TIM1->ATRLR = (DMA_BUFFER_LEN*(8<<TIMER_DIVISOR))-1;
 	TIM1->CCER = TIM_CC1E;
 	TIM1->CH1CVR = DMA_BUFFER_LEN/2; // Trigger midway through.
-	TIM1->CTLR1 = TIM_CEN;	
+	TIM1->CTLR1 = TIM_CEN;
 	TIM1->DMAINTENR = TIM_CC1DE;
 
+	// PD2 is T1CH1, 10MHz Output alt func, push-pull  For debugging the timer.
+#if 0
+	TIM1->CCER |= TIM_CC1E | TIM_CC1P;
+	TIM1->CHCTLR1 |= TIM_OC1M_2 | TIM_OC1M_1;	
+	TIM1->BDTR |= TIM_MOE;
+	GPIOD->CFGLR &= ~(0xf<<(4*2));
+	GPIOD->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP_AF)<<(4*2);
+#endif
 
 	for( i = 0; i < NUM_CHAIN_ENTRIES; i++ )
 	{
@@ -345,7 +353,6 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 	//if( torx > len ) torx = len;
 	//if( torx > 0 )
 	{
-		int i;
 		int available = (uint8_t)(scratch_tail - scratch_head - 1);
 
 		e->count++;
