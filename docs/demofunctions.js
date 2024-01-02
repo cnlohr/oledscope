@@ -78,12 +78,12 @@ function clockTest( arr )
 		this.clockSetup = true;
 	}
 
-	const pxouter = 393;
+	const pxouter = 30;
 	const pxperdiv = 20;
-	const pxperhand = 30;
+	const pxperhand = 20;
 	const totalpxo = pxouter + (12*pxperdiv) + 3 * pxperhand;
 	var today = new Date();
-	var seconds = today.getSeconds() + today.getMilliseconds()/1000.0;
+	var seconds = today.getSeconds() + today.getMilliseconds()/1000.0;	
 	var minutes= today.getMinutes() + seconds / 60.0;
 	var hours = today.getHours() + minutes/60.0;
 
@@ -96,15 +96,15 @@ function clockTest( arr )
 		//j = Math.random() * (totalpxo);
 
 		// Do this to add a tiny amount of randomness.
-		j += Math.random()*.2;
+		j += Math.random()*.5;
 
 		let x = -100;
 		let y = -100;
 
 		if( j < pxouter )
 		{
-			x = Math.sin( j * 3.14159 * 2.0 / pxouter );
-			y = Math.cos( j * 3.14159 * 2.0 / pxouter );
+			x = Math.sin( (j|0) * 3.14159 * 2.0 / pxouter - seconds/60.0*3.14159*2.0 );
+			y = Math.cos( (j|0) * 3.14159 * 2.0 / pxouter - seconds/60.0*3.14159*2.0 );
 		}
 		else if( j < pxouter + (12*pxperdiv) )
 		{
@@ -151,17 +151,18 @@ function clockTest( arr )
 			let ey = 1.0;
 			let angle = 0.0;
 			let len = 1.0;
+			let ilen = 0.0;
 			switch( whichhand )
 			{
-				case 0: angle = seconds / 30.0 * 3.14159; len = 0.65; break;
+				case 0: angle = seconds / 30.0 * 3.14159; len = 0.9; ilen = 1.05; break;
 				case 1: angle = minutes / 30.0 * 3.14159; len = 0.6; break;
-				case 2: angle = hours / 12.0 * 3.14159 * 2.0; len = 0.5; break;
+				case 2: angle = hours / 12.0 * 3.14159 * 2.0; len = 0.45; break;
 			}
 			ex = Math.cos( angle - 1.5707 );
 			ey = Math.sin( angle - 1.5707 );
 
-			x = lerp( 0, ex, along ) * len;
-			y = lerp( 0, ey, along ) * len;
+			x = lerp( ex*ilen, ex*len, along );
+			y = lerp( ey*ilen, ey*len, along );
 		}
 		else
 		{
@@ -176,7 +177,6 @@ function clockTest( arr )
 	}
 }
 
-
 function lerp( x, y, a )
 {
 	return x * (1.0-a) + y * a;
@@ -188,3 +188,4 @@ function sigrand()
 }
 
 demoFunctions = { juliaIIM, sirpinski, clockTest };
+
