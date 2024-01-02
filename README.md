@@ -1,12 +1,14 @@
 # CH32V003 USB-Controlled OLED Vectorscope for 128x128 OLED Module
 
-** THIS IS STILL A WORK IN PROGRESS PROJECT WILL BE PUBLISHED LATER**
+** THIS IS STILL A WORK IN PROGRESS - MORE PROJECT MATERIAL BE PUBLISHED LATER**
 
 Using [rv003usb](https://github.com/cnlohr/rv003usb), turn 128x128 SPI OLED Modules into a USB controlled vector (or rather point) scope!
 
+You can play with an [online emulator here](https://cnlohr.github.io/oledscope/) (or if you have an RV003USB-compatible board) you can connect it and play with it live.
+
 Soor, from my [Discord](https://discord.gg/CCeyWyZ) uncovered some very cool hacking they were able to get in with the SSD1306 controller for OLED displays.  And from that they developed some very cool proof of concept demos like this [vectorscope](https://www.youtube.com/shorts/4UzBADBHos4) on a 128x96 display.
 
-Then, I noticed that newer 128x128 displays were coming out.  And Soor's research went more in the direction of [accelerated shape rendering](https://www.youtube.com/watch?v=MwNGKHWkvP8) but I remained fascinated specifically with vector scopes.
+Then, I noticed that newer 128x128 displays were coming out.  And Soor(Görg Pflug)'s research went more in the direction of accelerated shape rendering [video](https://www.youtube.com/watch?v=MwNGKHWkvP8) [code](https://github.com/GoergPflug/ssd1306-Hardware3D) but I remained fascinated specifically with vector scopes.
 
 Another thing that came with the newer 128x128 displays was a new controller, the [SSD1327](https://cdn.sparkfun.com/assets/1/a/5/d/4/DS-15890-Zio_OLED.pdf) controller chip.  While the documentation made it abundantly clear that the chip could not use a 0 mux ratio, setting the register anyway showed that to be a lie.
 
@@ -14,7 +16,6 @@ With this knowledge, I decided to set out and see if I could make a USB controll
 
 ## TODO
 
- * Can we use webusb to control it?
  * Create diagram of how data flows.
  * Create schematic.
 
@@ -39,6 +40,8 @@ This queue can then, at the processor's leisure (in the main loop) be processed 
 The idea is the processor can look to see if there's room in the destination buffer by looking at the second DMA COUNT, if so, process another coordinate into this buffer.
 
 From there, the DMA engines take over.
+
+On top of all of this, I even found out later with the project that rv003usb can work with WebHID!  (See link in beginning)
 
 ## Future work
 
