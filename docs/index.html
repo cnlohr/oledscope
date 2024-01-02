@@ -35,6 +35,12 @@ function handleCodeError( e )
 
 function tryConnect()
 {
+	if( !navigator.hid )
+	{
+		setStatuserror( "Browser does not support HID :(" );
+		return;
+	}
+	
 	if( !dev )
 	{
 		navigator.hid.getDevices().then( (devices) =>
