@@ -103,8 +103,8 @@ function clockTest( arr )
 
 		if( j < pxouter )
 		{
-			x = Math.sin( j * .016 );
-			y = Math.cos( j * .016 );
+			x = Math.sin( j * 3.14159 * 2.0 / pxouter );
+			y = Math.cos( j * 3.14159 * 2.0 / pxouter );
 		}
 		else if( j < pxouter + (12*pxperdiv) )
 		{

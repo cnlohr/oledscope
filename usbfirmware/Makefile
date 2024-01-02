@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=usbcommands
+TARGET:=usbfirmware
 CH32V003FUN=../rv003usb/ch32v003fun/ch32v003fun
 #MINICHLINK?=../ch32v003fun/minichlink
 ADDITIONAL_C_FILES+=../rv003usb/rv003usb/rv003usb.S ../rv003usb/rv003usb/rv003usb.c
