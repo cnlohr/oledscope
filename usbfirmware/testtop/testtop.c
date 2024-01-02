@@ -23,6 +23,19 @@ int main()
 	// Size of buffers must match the report descriptor size in the special_hid_desc
 	//  NOTE: You are permitted to have multiple entries.
 	uint8_t buffer0[256] = { 0 }; // NOTE: This must be ONE MORE THAN what is in the hid descriptor.
+
+// Override start status word.
+#if 0
+	buffer0[0] = 0xaa; // First byte must match the ID.
+	buffer0[1] = 2; // Override start word.
+	buffer0[2] = 0xff;
+	buffer0[3] = 0xff;
+	buffer0[4] = 0x00;
+	buffer0[5] = 0xdc;
+	hid_send_feature_report( hd, buffer0, sizeof(buffer0) );
+#endif
+
+
 	int r;
 	int i;
 	int j;
@@ -33,7 +46,7 @@ int main()
 	uint32_t elementno;
 
 //#define PAIRTEST
-#define IIM_JULIA
+//#define IIM_JULIA
 //#define SIRPINSKI
 //#define SWRITLE
 

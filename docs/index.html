@@ -99,6 +99,10 @@ function onLoad()
 	}
 	document.getElementById( "DemoFunctionList" ).innerHTML = demoFunctionList;
 	
+	document.getElementById('StatusWord').value = "ffffdc00";
+	document.getElementById('StatusWord').addEventListener('change', changeStatusWord ); 
+	document.getElementById('StatusWord').addEventListener('keyup', changeStatusWord ); 
+
 	setTimeout( sendLoop, 1 );
 }
 
@@ -161,6 +165,22 @@ function tryOpen( thisDev )
 			setStatusError( "Error: Could not open; " + result );
 		}
 	} ).catch( (e) => setStatusError( "Error: Could not open; " + e ) );
+}
+
+async function changeStatusWord(e)
+{
+	let v = parseInt(this.value, 16);
+	var array = new Uint8Array(254);
+	array[0] = 2;
+	array[1] = ( v >> 16) & 0xFF;
+	array[2] = ( v >> 24) & 0xFF;
+	array[3] = ( v >> 0) & 0xFF;
+	array[4] = ( v >> 8) & 0xFF;
+	if( dev )
+	{
+		sendReport = dev.sendFeatureReport( 0xAA, array )
+			.catch( (e) => { setStatusError( e ); dev = null; } );
+	}
 }
 
 async function sendLoop()
@@ -270,7 +290,9 @@ Canned Functions:<BR>
 			<DIV ID="compileErrors" STYLE="color:red"></DIV>
 		</TD>
 		<TD WIDTH=50%>
-			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF">
+			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF"></CANVAS>
+			Status Word Modifications:
+			<INPUT ID="StatusWord">
 		</TD>
 	</TR>
 </TABLE>

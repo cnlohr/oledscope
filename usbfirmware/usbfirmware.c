@@ -27,7 +27,7 @@
 // This determines the time between updates
 #define SPI_DIVISOR 2 // Smaller = faster.
 #define TIMER_DIVISOR 2 // Smaller = faster
-#define DMA_BUFFER_LEN  46
+#define DMA_BUFFER_LEN  16
 	// Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
 	// 44/46 was experimentally found because beyond that the display start seriously dropping pixels.
 
@@ -162,6 +162,9 @@ int main()
 	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd5, 0xf0}, 4 );
 	Delay_Ms( 2 );
 	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd9, 0xf0}, 4 );
+	Delay_Ms( 2 );
+
+	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xe2, 0x04}, 4 );
 	Delay_Ms( 2 );
 	
 	// With the above, it looks like there's about 16k points per second. With DMA SIZE of 64, and 6MHz bus.
@@ -370,6 +373,16 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 		if( first_byte && len )
 		{
 			// Second byte could be used in the future.
+			if( ( datah[0] >> 8 ) == 2 )
+			{
+				if( first_byte == 1 )
+				{
+					((uint16_t*)spi_payload)[0] = datah[1];
+					((uint16_t*)spi_payload)[1] = datah[2];
+					first_byte++;
+				}
+				goto done;
+			}
 			datah ++;
 			len --;
 			first_byte = 0;
@@ -391,6 +404,7 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 			return;
 		}
 	}
+done:
 	usb_send_data( 0, 0, 2, 0xD2 ); // Send ACK
 	return;
 }
