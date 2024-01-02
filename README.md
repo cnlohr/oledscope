@@ -1,5 +1,7 @@
 # CH32V003 USB-Controlled OLED Vectorscope for 128x128 OLED Module
 
+** THIS IS STILL A WORK IN PROGRESS PROJECT WILL BE PUBLISHED LATER**
+
 Using [rv003usb](https://github.com/cnlohr/rv003usb), turn 128x128 SPI OLED Modules into a USB controlled vector (or rather point) scope!
 
 Soor, from my [Discord](https://discord.gg/CCeyWyZ) uncovered some very cool hacking they were able to get in with the SSD1306 controller for OLED displays.  And from that they developed some very cool proof of concept demos like this [vectorscope](https://www.youtube.com/shorts/4UzBADBHos4) on a 128x96 display.
