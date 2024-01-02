@@ -185,7 +185,7 @@ async function changeStatusWord(e)
 
 async function sendLoop()
 {
-	var array = new Uint8Array(254);
+	var array = new Uint8Array(255);
 	while( true )
 	{
 		var i = 0|0;
@@ -291,7 +291,8 @@ Canned Functions:<BR>
 		</TD>
 		<TD WIDTH=50%>
 			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF"></CANVAS>
-			Status Word Modifications:
+			<BR>
+			Status Word Modifications:<BR>
 			<INPUT ID="StatusWord">
 		</TD>
 	</TR>

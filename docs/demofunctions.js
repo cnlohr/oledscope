@@ -177,6 +177,22 @@ function clockTest( arr )
 	}
 }
 
+function streaktest( arr )
+{
+	if( !this.streakSetup )
+	{
+		this.place = 0|0;
+		this.streakSetup = true;
+	}
+
+	for( var i = 1|0; i < 254|0; i+= 2)
+	{
+		var j = this.place++;
+		arr[i+1] = (j) & 0x7f;
+		arr[i+0] = ((j>>7)*8) & 0x7f;	
+	}
+}
+
 function lerp( x, y, a )
 {
 	return x * (1.0-a) + y * a;
@@ -187,5 +203,5 @@ function sigrand()
 	return Math.sqrt( -2.0 * Math.log( 1.0 - Math.random() ) ) * Math.cos( 2.0 * Math.PI * Math.random() );
 }
 
-demoFunctions = { juliaIIM, sirpinski, clockTest };
+demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest };
 
