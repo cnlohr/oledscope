@@ -34,7 +34,7 @@ From there, I can take in new USB Feature Reports, and queue up the requests (x,
 
 This queue can then, at the processor's leisure (in the main loop) be processed from x,y coordnates into the commands that need to get sent to the display to cause the pixel to jump to the right location.
 
-The idea is the processor can look to see if there's room in the destination buffer by looking at the second DMA COUNT, if so, process another coordinate into this buffer.
+The idea is the processor can look to see if there's room in the destination buffer by looking at the second [DMA COUNT](https://github.com/cnlohr/oledscope/blob/master/usbfirmware/usbfirmware.c#L322), if so, process another coordinate into this buffer.
 
 From there, the DMA engines take over.
 
@@ -63,7 +63,7 @@ Connections:
 
 ## TODO
 
- * Create diagram of how data flows.
+ * Create diagram of how data flows with the DMAs.
 
 
 
