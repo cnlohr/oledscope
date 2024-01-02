@@ -38,6 +38,8 @@ From there, the DMA engines take over.
 
 On top of all of this, I even found out later with the project that rv003usb can work with WebHID!  (See link in beginning)
 
+And what luck. With WebHID, I added two boxes so I can peek and poke at the registers, and I found out I can instead of blanking, pause the OLED between updates.
+
 ## Future work
 
 Well, I remain unconvinced that there isn't a way to get this chip to update **now** instead of waiting for the 16kHz clock.  So, if you have any ideas for new register to peek or poke at, please do! I would love to improve this project.

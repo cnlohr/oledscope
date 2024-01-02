@@ -99,9 +99,13 @@ function onLoad()
 	}
 	document.getElementById( "DemoFunctionList" ).innerHTML = demoFunctionList;
 	
-	document.getElementById('StatusWord').value = "ffffdc00";
-	document.getElementById('StatusWord').addEventListener('change', changeStatusWord ); 
-	document.getElementById('StatusWord').addEventListener('keyup', changeStatusWord ); 
+	document.getElementById('StatusWord').value = "ffffd5ff";
+	document.getElementById('StatusWord').addEventListener('change', (e) => changeStatusWord( document.getElementById('StatusWord').value, 2 ) ); 
+	document.getElementById('StatusWord').addEventListener('keyup', (e) => changeStatusWord( document.getElementById('StatusWord').value, 2 ) ); 
+
+	document.getElementById('StatusWordSuf').value = "d5f0ffff";
+	document.getElementById('StatusWordSuf').addEventListener('change', (e) => changeStatusWord( document.getElementById('StatusWordSuf').value, 3 ) ); 
+	document.getElementById('StatusWordSuf').addEventListener('keyup', (e) => changeStatusWord( document.getElementById('StatusWordSuf').value, 3 ) ); 
 
 	setTimeout( sendLoop, 1 );
 }
@@ -167,11 +171,11 @@ function tryOpen( thisDev )
 	} ).catch( (e) => setStatusError( "Error: Could not open; " + e ) );
 }
 
-async function changeStatusWord(e)
+async function changeStatusWord(e, ww)
 {
-	let v = parseInt(this.value, 16);
+	let v = parseInt(e, 16);
 	var array = new Uint8Array(254);
-	array[0] = 2;
+	array[0] = ww;
 	array[1] = ( v >> 16) & 0xFF;
 	array[2] = ( v >> 24) & 0xFF;
 	array[3] = ( v >> 0) & 0xFF;
@@ -182,6 +186,7 @@ async function changeStatusWord(e)
 			.catch( (e) => { setStatusError( e ); dev = null; } );
 	}
 }
+
 
 async function sendLoop()
 {
@@ -293,7 +298,8 @@ Canned Functions:<BR>
 			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF"></CANVAS>
 			<BR>
 			Status Word Modifications:<BR>
-			<INPUT ID="StatusWord">
+			<INPUT ID="StatusWord"><BR>
+			<INPUT ID="StatusWordSuf">
 		</TD>
 	</TR>
 </TABLE>

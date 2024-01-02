@@ -13,7 +13,6 @@
 
 
 #define NOPBYTE 0xff
-#define DO_PIXEL_BLANKING
 #define NRPXW 1
 
 // Reads in on rising clock, MSB first.
@@ -27,7 +26,7 @@
 // This determines the time between updates
 #define SPI_DIVISOR 2 // Smaller = faster.
 #define TIMER_DIVISOR 2 // Smaller = faster
-#define DMA_BUFFER_LEN  16
+#define DMA_BUFFER_LEN  46
 	// Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
 	// 44/46 was experimentally found because beyond that the display start seriously dropping pixels.
 
@@ -146,7 +145,7 @@ int main()
 		0xad, 0x80, // Set Charge pump
 		0xa0, 0x00, // Default mapping
 
-		0xd9, 0xff, // Override brightness.
+		0xd9, 0x06, // ???? No idea what this does, but this looks best.
 		0x81, 0xff, // Set constrast
 		0xdb, 0xff, // Set vcomh
 
@@ -158,12 +157,7 @@ int main()
 	// NOTES ABOUT D5 / D9 -> D5 seems primary clock and divisor control.  D9-> Some other tuning.
 	// DC -> ???? changing this seems to cause display to disable frequently.
 	
-	// Searching for some sort of "GO BRRR" flag.
-	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd5, 0xf0}, 4 );
-	Delay_Ms( 2 );
-	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xd9, 0xf0}, 4 );
-	Delay_Ms( 2 );
-
+	// No idea what this does.
 	SendCommand( 0, (uint8_t[]){0xff, 0xff, 0xe2, 0x04}, 4 );
 	Delay_Ms( 2 );
 	
@@ -213,10 +207,13 @@ int main()
 
 	// Fill out the buffer with some data.
 	memset( spi_payload, NOPBYTE, sizeof( spi_payload ) );
-	#ifdef DO_PIXEL_BLANKING
-		spi_payload[3] = 0xdc; // This enables blanking.
-		spi_payload[2] = 0;
-	#endif
+
+	spi_payload[3] = 0xd5; // 
+	spi_payload[2] = 0xff; // Pause
+	// Do commands
+	spi_payload[9] = 0xd5; // 
+	spi_payload[8] = 0xf0; // Resume
+
 
 	OLED_PIN_TO( OLED_CLOCK, 0 )
 	OLED_PIN_TO( OLED_DC, 0 )
@@ -373,15 +370,29 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 		if( first_byte && len )
 		{
 			// Second byte could be used in the future.
-			if( ( datah[0] >> 8 ) == 2 )
+			uint8_t ctrl = ( datah[0] >> 8 );
+			if( ctrl )
 			{
-				if( first_byte == 1 )
+				if( ctrl == 2 )
 				{
-					((uint16_t*)spi_payload)[0] = datah[1];
-					((uint16_t*)spi_payload)[1] = datah[2];
-					first_byte++;
+					if( first_byte == 1 )
+					{
+						((uint16_t*)spi_payload)[0] = datah[1];
+						((uint16_t*)spi_payload)[1] = datah[2];
+						first_byte++;
+					}
+					goto done;
 				}
-				goto done;
+				else if( ctrl == 3 )
+				{
+					if( first_byte == 1 )
+					{
+						((uint16_t*)spi_payload)[4] = datah[1];
+						((uint16_t*)spi_payload)[5] = datah[2];
+						first_byte++;
+					}
+					goto done;
+				}
 			}
 			datah ++;
 			len --;
