@@ -69,6 +69,7 @@ function sirpinski( arr )
 	this.sirpx = sirpx;
 	this.sirpy = sirpy;
 }
+
 function clockTest( arr )
 {
 	if( !this.clockSetup )
@@ -84,7 +85,7 @@ function clockTest( arr )
 	var today = new Date();
 	var seconds = today.getSeconds() + today.getMilliseconds()/1000.0;
 	var minutes= today.getMinutes() + seconds / 60.0;
-	var hours = today.getHours() + minutes/12.0;
+	var hours = today.getHours() + minutes/60.0;
 
 
 	for( var i = 1|0; i < 254|0; i+= 2)
@@ -95,7 +96,7 @@ function clockTest( arr )
 		//j = Math.random() * (totalpxo);
 
 		// Do this to add a tiny amount of randomness.
-		j += Math.random()*.1;
+		j += Math.random()*.2;
 
 		let x = -100;
 		let y = -100;
@@ -175,6 +176,7 @@ function clockTest( arr )
 		arr[i+0] = (y*60 + 64) & 0x7f;	
 	}
 }
+
 
 function lerp( x, y, a )
 {
