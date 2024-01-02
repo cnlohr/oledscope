@@ -1,0 +1,270 @@
+<HTML>
+<HEAD>
+<STYLE>
+:root {
+  color-scheme: dark;
+}
+</STYLE>
+<META charset="UTF-8">
+<SCRIPT>
+
+const expectedProductName = "OLEDScope003";
+let dev = null;
+let populateFunction = null;
+
+function setStatus( msg )
+{
+	document.getElementById( "STATUS" ).innerHTML = msg;
+}
+
+function setStatusOK( msg )
+{
+	setStatus( msg );
+}
+
+function setStatusError( msg )
+{
+	setStatus( "<FONT COLOR=RED>" + msg + "</FONT>" );
+	closeDeviceTool();
+}
+
+function handleCodeError( e )
+{
+	document.getElementById( "compileErrors" ).innerHTML = "<XMP>" + e.message + "\n" + e.stack + "</PRE>";
+}
+
+function tryConnect()
+{
+	if( !dev )
+	{
+		navigator.hid.getDevices().then( (devices) =>
+		{
+			if( devices.length == 0 )
+				setStatusError( "No devices found. Open a device." );
+			else
+				devices.forEach( tryOpen );
+		});
+	}
+}
+
+function onLoad()
+{
+	tryConnect();
+
+	navigator.hid.addEventListener("disconnect", (event) => {
+		if( event.device.productName == expectedProductName )
+		{
+			dev = null;
+			setStatusError( "Disconnected" );
+			closeDeviceTool();
+		}
+	});
+	
+	setActiveFunction( localStorage.getItem( "drawFunction" ) );
+	
+	document.getElementById('DrawCode').addEventListener('keydown', function(e) {
+		if (e.key == 'Tab') {
+			e.preventDefault();
+			var start = this.selectionStart;
+			var end = this.selectionEnd;
+
+			// set textarea value to: text before caret + tab + text after caret
+			this.value = this.value.substring(0, start) +
+			"\t" + this.value.substring(end);
+
+			// put caret at right position again
+			this.selectionStart = this.selectionEnd = start + 1;
+		}
+	});
+
+	document.getElementById('DrawCode').addEventListener('input', function(e) { setActiveFunction( this.value ); } );
+	
+	var demoFunctionList = "";
+	for( f in demoFunctions )
+	{
+		demoFunctionList += "<INPUT TYPE=SUBMIT onClick=\"setActiveFunction( " + f + " );\" VALUE='" + f + "'> ";
+	}
+	document.getElementById( "DemoFunctionList" ).innerHTML = demoFunctionList;
+	
+	setTimeout( sendLoop, 1 );
+}
+
+function reqConnect()
+{
+	if( dev )
+	{
+		dev.forget();
+		dev = null;
+	}
+	
+	const initialization = navigator.hid.requestDevice( { filters: [ { vendorId : 0x1209, productId : 0xd003 } ] } );
+	initialization.then( gotUSBDevice );
+	initialization.catch( setStatusError );
+}
+
+function openDeviceTool()
+{
+	// Do something
+}
+
+function closeDeviceTool()
+{
+	// Do something
+}
+
+
+function gotUSBDevice(result)
+{
+	if( result.length < 1 )
+	{
+		setStatusError( "Error: No devices found" );
+		return;
+	}
+
+	if( result[0].productName != expectedProductName )
+	{
+		setStatusError( "Error: Wrong device name.  Got " + result[0].productName + " Expected " + expectedProductName );
+		return;
+	}
+
+	const thisDev = result[0];
+	
+	tryOpen( thisDev );
+}
+
+function tryOpen( thisDev )
+{
+	if( dev != null ) return;
+
+	thisDev.open().then( ( result ) => {
+		if( result === undefined )
+		{
+			dev = thisDev;
+			setStatusOK( "Connected." );
+			openDeviceTool();
+		}
+		else
+		{
+			setStatusError( "Error: Could not open; " + result );
+		}
+	} );
+}
+
+async function sendLoop()
+{
+	var array = new Uint8Array(254);
+	while( true )
+	{
+		var i = 0|0;
+		if( populateFunction != null )
+		{
+			try
+			{
+				populateFunction( array );
+			}
+			catch( e )
+			{
+				handleCodeError( e );
+				populateFunction = null;
+			}
+		}
+		else
+		{
+			for( var i = 1|0; i < 254|0; i+= 2|0 )
+			{
+				array[i+0] = i;
+				array[i+1] = 128-i;
+			}
+		}
+
+		let sendReport = null;
+		if( dev )
+		{
+			sendReport = dev.sendFeatureReport( 0xAA, array )
+				.catch( (e) => console.log( e ) );
+		}
+		
+		// Report is now sending.  We can render something.
+		const arrayScale = 4|0;
+		var canvas = document.getElementById("Canvas");
+		var ctx = canvas.getContext("2d");
+		ctx.fillStyle = "rgba(0,0,0,1.0)";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		ctx.fillStyle = "rgba(255,255,255,0.4)";
+
+		for( var i = 1|0; i < 254|0; i+= 2|0 )
+		{
+			ctx.fillRect( array[i+1] * arrayScale, array[i+0] * arrayScale, arrayScale, arrayScale );
+		}
+
+		if( sendReport )
+		{
+			await sendReport;
+		}
+		else
+		{
+			tryConnect();
+			const sleep = ms => new Promise(r => setTimeout(r, ms));
+			await sleep(10);
+		}
+	}
+}
+
+function setActiveFunction( fn )
+{
+	localStorage.setItem( "drawFunction", fn );
+	if( fn === undefined || fn == null )
+	{
+		populateFunction = null;
+	}
+	else
+	{
+		var functionName = fn.toString();
+		functionName = functionName.substr('function '.length);
+		functionName = functionName.substr(0, functionName.indexOf('('));
+
+		document.getElementById( "compileErrors" ).innerHTML = "";
+		try
+		{
+			eval( fn );
+		} catch(e)
+		{
+			handleCodeError( e );
+		}
+		
+		populateFunction = eval(functionName);
+		document.getElementById( "DrawCode" ).value = fn;
+	}
+}
+
+</SCRIPT>
+<SCRIPT src=demofunctions.js>
+</SCRIPT>
+<BODY onload="onLoad()">
+
+<INPUT TYPE=SUBMIT onClick="reqConnect()" VALUE=Connect>
+<DIV ID=STATUS></DIV>
+
+<DIV ID=INNERPAGE>
+	<DIV ID=DemoFunctionList></DIV>
+	<BR>
+	<TABLE WIDTH=100%>
+		<TR>
+			<TD WIDTH=50%>
+				<TEXTAREA ID="DrawCode" COLS=130 ROWS=50 SPELLCHECK=false>
+				
+				</TEXTAREA>
+				<DIV ID="compileErrors" STYLE="color:red"></DIV>
+			</TD>
+			<TD WIDTH=50%>
+				<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF">
+			</TD>
+		</TR>
+	</TABLE>
+</DIV>
+
+
+
+</BODY>
+</HTML>

@@ -11,7 +11,6 @@
 
 #include "rv003usb.h"
 
-#define SCRATCH_SIZE 256 // In bytes
 
 #define NOPBYTE 0xff
 #define DO_PIXEL_BLANKING
@@ -30,13 +29,15 @@
 #define TIMER_DIVISOR 2 // Smaller = faster
 #define DMA_BUFFER_LEN  46
 	// Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
-	// 46 was experimentally found because beyond that the display start seriously dropping pixels.
+	// 44/46 was experimentally found because beyond that the display start seriously dropping pixels.
 
 // This is the buffer of points to go to.
 #define NUM_CHAIN_ENTRIES 128 // In words
 
+#define SCRATCH_SIZE 128 // In words
+
 #define SCRATCH_MASK (SCRATCH_SIZE-1)
-uint8_t scratch[SCRATCH_SIZE];
+uint16_t scratch[SCRATCH_SIZE];
 uint32_t scratch_head = 0;
 uint32_t scratch_tail = 0;
 uint8_t spi_payload[DMA_BUFFER_LEN];
@@ -46,15 +47,16 @@ static void FillSPIPayload( uint8_t * buffer )
 {
 	uint32_t local_tail = scratch_tail;
 	uint32_t remain = (scratch_head - scratch_tail) & SCRATCH_MASK;
-	if( remain > 2 ) // XXX WHYYYYYYYYYYYYYYYYYYY???????? Why not >1? ? I have noooo ideaaaaaa
+	if( remain >= 3 )
 	{
 		// Create grid to brr as fast as possible.
-		buffer[1] = 0xd3;
-		buffer[0] = scratch[local_tail++] & 0x7f;
-		buffer[3] = 0xdc;
-		buffer[2] = scratch[local_tail++] & 0x7f;//(ict >> 7) & 0x7f;;
+		uint16_t word = scratch[local_tail];
+		scratch_tail = (local_tail + 1) & SCRATCH_MASK;
 		
-		scratch_tail = (local_tail) & SCRATCH_MASK;
+		buffer[1] = 0xd3;
+		buffer[0] = word & 0x7f;
+		buffer[3] = 0xdc;
+		buffer[2] = (word>>8) & 0x7f;
 	}
 	else
 	{
@@ -355,32 +357,35 @@ static uint32_t first_byte = 0;
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	int offset = e->count<<3;
-	int torx = e->max_len - offset;
-	//if( torx > len ) torx = len;
-	//if( torx > 0 )
+	if( e->max_len > 254 )
 	{
 		int available = (scratch_tail - scratch_head - 1) & SCRATCH_MASK;
 
 		e->count++;
-		uint8_t * dataend = data + len;
 
 		// The first byte is the report ID.
+		len >>= 1;
+		uint16_t * datah = (uint16_t*)data;
+
 		if( first_byte && len )
 		{
-			data++;
+			// Second byte could be used in the future.
+			datah ++;
+			len --;
 			first_byte = 0;
 		}
+		
+		uint16_t * dataend = datah + len;
 
 		int local_scratch_head = scratch_head;
-		while( data != dataend )
+		while( datah != dataend )
 		{
-			scratch[local_scratch_head] = *(data++);
+			scratch[local_scratch_head] = *(datah++);
 			local_scratch_head = (local_scratch_head + 1) & SCRATCH_MASK;
 		}
 		scratch_head = local_scratch_head;
 
-		if( available < 20 )
+		if( available < 16 )
 		{
 			usb_send_data( 0, 0, 2, 0x5A ); // Send NACK (can't accept any more data right now)
 			return;
