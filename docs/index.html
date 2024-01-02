@@ -160,7 +160,7 @@ function tryOpen( thisDev )
 		{
 			setStatusError( "Error: Could not open; " + result );
 		}
-	} );
+	} ).catch( (e) => setStatusError( "Error: Could not open; " + e ) );
 }
 
 async function sendLoop()
@@ -194,7 +194,7 @@ async function sendLoop()
 		if( dev )
 		{
 			sendReport = dev.sendFeatureReport( 0xAA, array )
-				.catch( (e) => console.log( e ) );
+				.catch( (e) => { setStatusError( e ); dev = null; } );
 		}
 		
 		// Report is now sending.  We can render something.
