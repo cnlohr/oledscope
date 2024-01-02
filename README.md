@@ -4,9 +4,9 @@
 
 Using [rv003usb](https://github.com/cnlohr/rv003usb), turn 128x128 SPI OLED Modules into a USB controlled vector (or rather point) scope!
 
-You can play with an [online emulator here](https://cnlohr.github.io/oledscope/) (or if you have an RV003USB-compatible board) you can connect it and play with it live.
+You can play with an [online emulator here](https://cnlohr.github.io/oledscope/) (or if you have an RV003USB-compatible board and use a lame browser) you can connect it and play with it live.
 
-Soor, from my [Discord](https://discord.gg/CCeyWyZ) uncovered some very cool hacking they were able to get in with the SSD1306 controller for OLED displays.  And from that they developed some very cool proof of concept demos like this [vectorscope](https://www.youtube.com/shorts/4UzBADBHos4) on a 128x96 display.
+Soor (Görg Pflug), from my [Discord Server](https://discord.gg/CCeyWyZ) uncovered some very cool hacking they were able to get in with the SSD1306 controller for OLED displays.  And from that they developed some very cool proof of concept demos like this [vectorscope](https://www.youtube.com/shorts/4UzBADBHos4) on a 128x96 display.
 
 Then, I noticed that newer 128x128 displays were coming out.  And Soor(Görg Pflug)'s research went more in the direction of accelerated shape rendering [video](https://www.youtube.com/watch?v=MwNGKHWkvP8) [code](https://github.com/GoergPflug/ssd1306-Hardware3D) but I remained fascinated specifically with vector scopes.
 
@@ -14,10 +14,7 @@ Another thing that came with the newer 128x128 displays was a new controller, th
 
 With this knowledge, I decided to set out and see if I could make a USB controlled scope out of this 10 cent processor and $4 screen.  For that story, feel free to read below. But, let's just say it was a success.
 
-## TODO
-
- * Create diagram of how data flows.
- * Create schematic.
+![vector scope picture](https://github.com/cnlohr/oledscope/blob/master/docs/picture.jpg?raw=true)
 
 ## Does it work at all?
 
@@ -57,7 +54,16 @@ Many of the 128x128 OLED Modules are like this one from waveshare: https://www.w
 
 The specific one I bought was a GME128128-01-SPI from here: https://www.aliexpress.us/item/3256805799076926.html
 
+Connections: 
+ * PC6 = SDA(MOSI)
+ * PC5 = SCL(SCK)
+ * PC4 = DC
+ * PC2 = CS
+ * PC1 = RST
 
+## TODO
+
+ * Create diagram of how data flows.
 
 
 
