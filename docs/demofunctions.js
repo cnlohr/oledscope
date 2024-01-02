@@ -137,7 +137,6 @@ function clockTest( arr )
 				let tpl = ( d % 1) * segs;
 
 				let tseg = ( tpl ) | 0;
-				console.log( tseg*4+1, ts[tseg*4+1], ts  );
 				let along = tpl % 1;
 				x += lerp( ts[tseg*4+0], ts[tseg*4+2], along ) * 0.05;
 				y += lerp( ts[tseg*4+1], ts[tseg*4+3], along ) * 0.09;
