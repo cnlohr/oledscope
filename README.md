@@ -15,6 +15,8 @@ With this knowledge, I decided to set out and see if I could make a USB controll
 ## TODO
 
  * Can we use webusb to control it?
+ * Create diagram of how data flows.
+ * Create schematic.
 
 ## Does it work at all?
 
