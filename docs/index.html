@@ -201,7 +201,7 @@ async function sendLoop()
 		const arrayScale = 4|0;
 		var canvas = document.getElementById("Canvas");
 		var ctx = canvas.getContext("2d");
-		ctx.fillStyle = "rgba(0,0,0,1.0)";
+		ctx.fillStyle = "rgba(0,0,0,0.4)";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 		ctx.fillStyle = "rgba(255,255,255,0.4)";
@@ -256,27 +256,24 @@ function setActiveFunction( fn )
 </SCRIPT>
 <BODY onload="onLoad()">
 
-<INPUT TYPE=SUBMIT onClick="reqConnect()" VALUE=Connect ID=connectButton>
-<DIV ID=STATUS></DIV>
-
-<DIV ID=INNERPAGE>
-	<DIV ID=DemoFunctionList></DIV>
-	<BR>
-	<TABLE WIDTH=100%>
-		<TR>
-			<TD WIDTH=50%>
-				<TEXTAREA ID="DrawCode" COLS=130 ROWS=50 SPELLCHECK=false>
-				
-				</TEXTAREA>
-				<DIV ID="compileErrors" STYLE="color:red"></DIV>
-			</TD>
-			<TD WIDTH=50%>
-				<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF">
-			</TD>
-		</TR>
-	</TABLE>
-</DIV>
-
+<TABLE><TR><TD><INPUT TYPE=SUBMIT onClick="reqConnect()" VALUE="Open Device" ID=connectButton></TD><TD><DIV ID=STATUS></DIV></TD></TR></TABLE>
+<BR>
+Canned Functions:<BR>
+<DIV ID=DemoFunctionList></DIV>
+<BR>
+<TABLE WIDTH=100%>
+	<TR>
+		<TD WIDTH=50%>
+			<TEXTAREA ID="DrawCode" COLS=130 ROWS=50 SPELLCHECK=false STYLE="tab-size: 4;">
+			
+			</TEXTAREA>
+			<DIV ID="compileErrors" STYLE="color:red"></DIV>
+		</TD>
+		<TD WIDTH=50%>
+			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF">
+		</TD>
+	</TR>
+</TABLE>
 
 
 </BODY>
