@@ -36,8 +36,10 @@ int main()
 	uint32_t elementno;
 
 //#define PAIRTEST
-#define IIM_JULIA
+//#define IIM_JULIA
 //#define SIRPINSKI
+#define SWRITLE
+
 #if defined( IIM_JULIA )
 	double zreal = 0.1;
 	double zimag = 0.1;
@@ -47,6 +49,7 @@ int main()
 	double sirpx = (rand()%1000) / 1000.0;
 	double sirpy = (rand()%1000) / 1000.0;
 #endif
+	uint32_t pxno = 0;
 
 	for( j = 0; ; j++ )
 	{
@@ -56,10 +59,17 @@ int main()
 		creal = sin( j/100.0 )*1.0;
 		cimag = cos( j/100.0 )*1.0;
 #endif
+
+		//Sleep(200);
+
 		// But we can fill in random for the rest.
 		for( i = 1; i < sizeof( buffer0 ); i+=2 )
 		{
-#if defined( PAIRTEST )
+			pxno++;
+#if defined( SWRITLE )
+			buffer0[i+0] = ( sin( pxno * 3.14159 * 0.00109  ) ) * 60 + 64;
+			buffer0[i+1] = ( cos( pxno * 3.14159 * 0.00103 ) ) * 60 + 64;
+#elif defined( PAIRTEST )
 			buffer0[i+0] = (i&2)?50 : 20;
 			buffer0[i+1] = (i&2)?50 : 20;
 #elif defined( IIM_JULIA )
@@ -96,7 +106,7 @@ int main()
 #else
 			// Scanning line.
 			buffer0[i+0] = elementno & 0x7f;
-			buffer0[i+1] = (elementno>>7) & 0x7f;
+			buffer0[i+1] = ((elementno>>7)*10) & 0x7f;
 			elementno++;
 #endif
 		}

@@ -11,13 +11,11 @@
 
 #include "rv003usb.h"
 
-uint8_t scratch[256];
-uint8_t scratch_head = 0;
-uint8_t scratch_tail = 0;
+#define SCRATCH_SIZE 256 // In bytes
 
 #define NOPBYTE 0xff
 #define DO_PIXEL_BLANKING
-#define NRPXW 2
+#define NRPXW 1
 
 // Reads in on rising clock, MSB first.
 
@@ -30,24 +28,33 @@ uint8_t scratch_tail = 0;
 // This determines the time between updates
 #define SPI_DIVISOR 2 // Smaller = faster.
 #define TIMER_DIVISOR 2 // Smaller = faster
-#define DMA_BUFFER_LEN  28 // Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
+#define DMA_BUFFER_LEN  46
+	// Write out this many command bytes per pixel location change.  NOTE: This must be EVEN but, it should be based on reality doesn't have to be Pow2
+	// 46 was experimentally found because beyond that the display start seriously dropping pixels.
 
 // This is the buffer of points to go to.
-#define NUM_CHAIN_ENTRIES 128
+#define NUM_CHAIN_ENTRIES 128 // In words
 
+#define SCRATCH_MASK (SCRATCH_SIZE-1)
+uint8_t scratch[SCRATCH_SIZE];
+uint32_t scratch_head = 0;
+uint32_t scratch_tail = 0;
 uint8_t spi_payload[DMA_BUFFER_LEN];
 uint32_t chain_data[NUM_CHAIN_ENTRIES];
 
 static void FillSPIPayload( uint8_t * buffer )
 {
-	uint8_t remain = scratch_head - scratch_tail;
-	if( remain > 1 )
+	uint32_t local_tail = scratch_tail;
+	uint32_t remain = (scratch_head - scratch_tail) & SCRATCH_MASK;
+	if( remain > 2 ) // XXX WHYYYYYYYYYYYYYYYYYYY???????? Why not >1? ? I have noooo ideaaaaaa
 	{
 		// Create grid to brr as fast as possible.
 		buffer[1] = 0xd3;
-		buffer[0] = scratch[scratch_tail++] & 0x7f;
+		buffer[0] = scratch[local_tail++] & 0x7f;
 		buffer[3] = 0xdc;
-		buffer[2] = scratch[scratch_tail++] & 0x7f;//(ict >> 7) & 0x7f;;
+		buffer[2] = scratch[local_tail++] & 0x7f;//(ict >> 7) & 0x7f;;
+		
+		scratch_tail = (local_tail) & SCRATCH_MASK;
 	}
 	else
 	{
@@ -202,8 +209,8 @@ int main()
 	// Fill out the buffer with some data.
 	memset( spi_payload, NOPBYTE, sizeof( spi_payload ) );
 	#ifdef DO_PIXEL_BLANKING
-		spi_payload[1] = 0xdc; // This enables blanking.
-		spi_payload[0] = 0;
+		spi_payload[3] = 0xdc; // This enables blanking.
+		spi_payload[2] = 0;
 	#endif
 
 	OLED_PIN_TO( OLED_CLOCK, 0 )
@@ -270,22 +277,18 @@ int main()
 	// Setup DMA Channel 2 to refill buffer.
 	// It's hooked to TIM1 CH1.
 
-
-	// Starting shifting out frames.
-	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
-
 	// Reset TIM1 to init all regs
 	RCC->APB2PRSTR |= RCC_APB2Periph_TIM1;
 	RCC->APB2PRSTR &= ~RCC_APB2Periph_TIM1;
 	TIM1->PSC = 1;
 	TIM1->ATRLR = (DMA_BUFFER_LEN*(8<<TIMER_DIVISOR))-1;
 	TIM1->CCER = TIM_CC1E;
-	TIM1->CH1CVR = DMA_BUFFER_LEN/2; // Trigger midway through.
+	TIM1->CH1CVR = TIM1->ATRLR/2; // Trigger midway through.
 	TIM1->CTLR1 = TIM_CEN;
 	TIM1->DMAINTENR = TIM_CC1DE;
 
 	// PD2 is T1CH1, 10MHz Output alt func, push-pull  For debugging the timer.
-#if 0
+#if 1
 	TIM1->CCER |= TIM_CC1E | TIM_CC1P;
 	TIM1->CHCTLR1 |= TIM_OC1M_2 | TIM_OC1M_1;	
 	TIM1->BDTR |= TIM_MOE;
@@ -297,6 +300,10 @@ int main()
 	{
 		FillSPIPayload( (uint8_t*)&chain_data[i] );
 	}
+
+	// Starting shifting out frames.
+	DMA1_Channel3->CFGR |= DMA_CFGR1_EN;
+
 	
 	int head = 0;
 	int delta;
@@ -348,12 +355,12 @@ static uint32_t first_byte = 0;
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	//int offset = e->count<<3;
-	//int torx = e->max_len - offset;
+	int offset = e->count<<3;
+	int torx = e->max_len - offset;
 	//if( torx > len ) torx = len;
 	//if( torx > 0 )
 	{
-		int available = (uint8_t)(scratch_tail - scratch_head - 1);
+		int available = (scratch_tail - scratch_head - 1) & SCRATCH_MASK;
 
 		e->count++;
 		uint8_t * dataend = data + len;
@@ -365,12 +372,15 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 			first_byte = 0;
 		}
 
+		int local_scratch_head = scratch_head;
 		while( data != dataend )
 		{
-			scratch[scratch_head++] = *(data++);
+			scratch[local_scratch_head] = *(data++);
+			local_scratch_head = (local_scratch_head + 1) & SCRATCH_MASK;
 		}
+		scratch_head = local_scratch_head;
 
-		if( available < 16 )
+		if( available < 20 )
 		{
 			usb_send_data( 0, 0, 2, 0x5A ); // Send NACK (can't accept any more data right now)
 			return;
@@ -390,6 +400,7 @@ void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint3
 {
 	scratch_head &= ~2; // Force each frame to be aligned to word-pair
 	first_byte = 1;
+	e->max_len = reqLen;
 }
 
 
