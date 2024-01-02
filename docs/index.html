@@ -59,7 +59,7 @@ function onLoad()
 
 	if( !navigator.hid )
 	{
-		setStatuserror( "Browser does not support HID :(" );
+		setStatusError( "Browser does not support HID :(" );
 		document.getElementById( "connectButton" ).hidden = true;
 	}
 	else
