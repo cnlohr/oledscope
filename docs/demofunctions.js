@@ -229,6 +229,67 @@ function starfield( arr )
 	}
 }
 
+function fireworks( arr )
+{
+	if( !this.fireworksSetup )
+	{
+		this.place = 0|0;
+		this.place = 0|0;
+		this.fireworksSetup = true;
+	}
+
+	const numWorks = 55;
+	const boom = 500;
+	const life = 1900;
+
+	let st = 0;
+	for( var i = 1|0; i < 254|0; i+= 2)
+	{	
+		let j = this.place++;
+
+		let stage = j % numWorks;
+		let frame = (j / numWorks) % life;
+		let lifetime = (((j / numWorks)|0) / life)|0;
+
+		let x = 0;
+		let y = 0;
+
+		// All together, was launched from ground.
+		let gx = stablerand( lifetime );
+		let gxl = stablerand( lifetime );
+		let gy = stablerand( lifetime ) - 1.0;
+
+		let coretime = frame;
+		if( coretime > boom ) coretime = boom;
+
+		let corex = gx * 0.3 + gxl * coretime * 0.0005;
+		let corey = (coretime*coretime) * 0.00001 + coretime * .0011 * (gy-5) + 1.0;
+
+		if( frame < boom )
+		{
+			x = corex;
+			y = corey;
+		}
+		else
+		{
+			corey += (frame-boom)*(frame-boom)*0.000004;
+			x = corex + stablerand( stage )*(frame-boom)*0.002;
+			y = corey + ( stablerand( stage + 512 ) - 1 ) * (frame-boom)*0.002;
+		}
+
+		if( x < -1 || y < -1 || x > 1 || y > 1 )
+		{
+			arr[i+1] = 0;
+			arr[i+0] = 0;	
+		}
+		else
+		{
+			arr[i+1] = (x*60+ 64) & 0x7f;
+			arr[i+0] = (y*60 + 64) & 0x7f;	
+		}
+	}
+}
+
 function stablerand( p )
 {
 	p = (p * .1031) % 1;
@@ -250,5 +311,5 @@ function sigrand()
 	return Math.sqrt( -2.0 * Math.log( 1.0 - Math.random() ) ) * Math.cos( 2.0 * Math.PI * Math.random() );
 }
 
-demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest, starfield };
+demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest, starfield, fireworks };
 
