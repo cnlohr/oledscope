@@ -11,6 +11,7 @@
 const expectedProductName = "OLEDScope003";
 let dev = null;
 let populateFunction = null;
+let elapsedOK = false; // If user has crashing code, give them 2 seconds to recover on page load.
 
 function setStatus( msg )
 {
@@ -107,6 +108,8 @@ function onLoad()
 	document.getElementById('StatusWordSuf').addEventListener('change', (e) => changeStatusWord( document.getElementById('StatusWordSuf').value, 3 ) ); 
 	document.getElementById('StatusWordSuf').addEventListener('keyup', (e) => changeStatusWord( document.getElementById('StatusWordSuf').value, 3 ) ); 
 
+    setTimeout( () => { elapsedOK = true; }, 3000 );
+
 	setTimeout( sendLoop, 1 );
 }
 
@@ -194,7 +197,7 @@ async function sendLoop()
 	while( true )
 	{
 		var i = 0|0;
-		if( populateFunction != null )
+		if( populateFunction != null && elapsedOK )
 		{
 			try
 			{
