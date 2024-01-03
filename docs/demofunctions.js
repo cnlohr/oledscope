@@ -217,7 +217,7 @@ function starfield( arr )
 
 		x = star.x * (star.age+1);
 		y = star.y * (star.age+1);
-		if( x > 1 || y > 1 || x < -1 || y < -1 || ( star.x * star.x + star.y * star.y ) < .003 )
+		if( x > 1 || y > 1 || x < -1 || y < -1 || ( star.x * star.x + star.y * star.y ) < .01 )
 		{
 			star.x = stablerand(star.y+star.age);
 			star.y = stablerand(star.x+star.age+9999);
