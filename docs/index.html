@@ -274,7 +274,14 @@ function setActiveFunction( fn )
 			handleCodeError( e );
 		}
 		
-		populateFunction = eval(functionName);
+		try
+		{
+    		populateFunction = eval(functionName);
+		} catch(e)
+		{
+			handleCodeError( e );
+            populateFunction = null;
+        }
 		document.getElementById( "DrawCode" ).value = fn;
 	}
 }
