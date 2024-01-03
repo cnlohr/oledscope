@@ -255,8 +255,8 @@ function fireworks( arr )
 		let y = 0;
 
 		// All together, was launched from ground.
-		let gx = stablerand( lifetime );
-		let gxl = stablerand( lifetime );
+		let gx = stablerand( lifetime + 100 );
+		let gxl = stablerand( lifetime + 200 );
 		let gy = stablerand( lifetime ) - 1.0;
 
 		let coretime = frame;
