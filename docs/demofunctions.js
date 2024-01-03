@@ -193,6 +193,53 @@ function streaktest( arr )
 	}
 }
 
+function starfield( arr )
+{
+	if( !this.starfieldSetup )
+	{
+		this.starcount = 64;
+		this.place = 0|0;
+		this.starfieldSetup = true;
+		this.stars = [];
+		for( var tsx = 0; tsx < this.starcount; tsx++ )
+		{
+			let st = { x : stablerand(tsx), y : stablerand(tsx+9999), age : 0 };
+			this.stars.push( st );
+		}
+	}
+
+	let st = 0;
+	for( var i = 1|0; i < 254|0; i+= 2)
+	{
+		let j = this.place++;
+		let star = this.stars[j % this.starcount];
+		var x,y;
+
+		x = star.x * (star.age+1);
+		y = star.y * (star.age+1);
+		if( x > 1 || y > 1 || x < -1 || y < -1 || ( star.x * star.x + star.y * star.y ) < .003 )
+		{
+			star.x = stablerand(star.y+star.age);
+			star.y = stablerand(star.x+star.age+9999);
+			star.age = 0;
+		}
+		star.age+=0.02;
+		arr[i+1] = (x*60+ 64) & 0x7f;
+		arr[i+0] = (y*60 + 64) & 0x7f;	
+	}
+}
+
+function stablerand( p )
+{
+	p = (p * .1031) % 1;
+	p *= p + 33.33;
+	p *= p + p;
+	return (((p) % 1) - 0.5) * 2.0;
+}
+
+
+
+
 function lerp( x, y, a )
 {
 	return x * (1.0-a) + y * a;
@@ -203,5 +250,5 @@ function sigrand()
 	return Math.sqrt( -2.0 * Math.log( 1.0 - Math.random() ) ) * Math.cos( 2.0 * Math.PI * Math.random() );
 }
 
-demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest };
+demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest, starfield };
 
