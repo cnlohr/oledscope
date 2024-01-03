@@ -238,9 +238,9 @@ function fireworks( arr )
 		this.fireworksSetup = true;
 	}
 
-	const numWorks = 30;
+	const numWorks = 40;
 	const boom = 500;
-	const life = 1900;
+	const life = 1700;
 
 	let st = 0;
 	for( var i = 1|0; i < 254|0; i+= 2)
@@ -272,9 +272,19 @@ function fireworks( arr )
 		}
 		else
 		{
+			let srx = stablerand( stage + lifetime*30 );
+			let sry = stablerand( stage + lifetime*30 + 512 );
+			let srz = stablerand( stage + lifetime*30 + 1024 );
+			let norm = Math.sqrt( srx*srx+sry*sry+srz*srz );
+			srx /= norm;
+			sry /= norm;
 			corey += (frame-boom)*(frame-boom)*0.000004;
-			x = corex + stablerand( stage )*(frame-boom)*0.002;
-			y = corey + ( stablerand( stage + 512 ) - 1 ) * (frame-boom)*0.002;
+			x = corex + srx*(frame-boom)*0.002;
+			y = corey + (sry - 1 ) * (frame-boom)*0.002;
+
+			//let maskrand = Math.sin( ( stablerand( stage ) * 0.1 + 0.1 ) * ( frame ) );
+			//let sparkage = (frame-boom)/(life);
+			//if( sparkage > maskrand ) x = -10;
 		}
 
 		if( x < -1 || y < -1 || x > 1 || y > 1 )
