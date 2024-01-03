@@ -238,7 +238,7 @@ function fireworks( arr )
 		this.fireworksSetup = true;
 	}
 
-	const numWorks = 55;
+	const numWorks = 30;
 	const boom = 500;
 	const life = 1900;
 
