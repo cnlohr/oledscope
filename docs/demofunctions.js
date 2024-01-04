@@ -231,6 +231,7 @@ function starfield( arr )
 function fireworks( arr )
 {
 	// Only state is this.place
+	if( this.place === undefined ) this.place = 0;
 
 	const numWorks = 40;
 	const boom = 700;
