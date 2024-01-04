@@ -139,7 +139,7 @@ function clockTest( arr )
 			let along = seg % 1;
 
 			x += lerp( shape[tseg*4+0], shape[tseg*4+2], along ) * 0.05;
-			y += lerp( shape[tseg*4+1], shape[tseg*4+3], along ) * 0.09;
+			y += lerp( shape[tseg*4+1], shape[tseg*4+3], along ) * 0.085;
 		}
 		else if( j < totalpxo  )
 		{
