@@ -230,12 +230,7 @@ function starfield( arr )
 
 function fireworks( arr )
 {
-	if( !this.fireworksSetup )
-	{
-		this.place = 0|0;
-		this.place = 0|0;
-		this.fireworksSetup = true;
-	}
+	// Only state is this.place
 
 	const numWorks = 40;
 	const boom = 500;
@@ -244,49 +239,58 @@ function fireworks( arr )
 	let st = 0;
 	for( var i = 1|0; i < 254|0; i+= 2)
 	{	
+
 		let j = this.place++;
-
-		let stage = j % numWorks;
-		let frame = (j / numWorks) % life;
-		let lifetime = (((j / numWorks)|0) / life)|0;
-
 		let x = 0;
 		let y = 0;
+		let advance = 0;
+		let stage = j % numWorks;
 
-		// All together, was launched from ground.
-		let gx = stablerand( lifetime + 100 );
-		let gxl = stablerand( lifetime + 200 );
-		let gy = stablerand( lifetime ) - 1.0;
-
-		let coretime = frame;
-		if( coretime > boom ) coretime = boom;
-
-		let corex = gx * 0.3 + gxl * coretime * 0.0005;
-		let corey = (coretime*coretime) * 0.00001 + coretime * .0011 * (gy-5) + 1.0;
-
-		if( frame < boom )
+		let tries = 0;
+		do
 		{
-			x = corex;
-			y = corey;
-		}
-		else
-		{
-			let srx = stablerand( stage + lifetime*30 );
-			let sry = stablerand( stage + lifetime*30 + 512 );
-			let srz = stablerand( stage + lifetime*30 + 1024 );
-			let norm = Math.sqrt( srx*srx+sry*sry+srz*srz );
-			srx /= norm;
-			sry /= norm;
-			corey += (frame-boom)*(frame-boom)*0.000004;
-			x = corex + srx*(frame-boom)*0.002;
-			y = corey + (sry - 1 ) * (frame-boom)*0.002;
+			tries++;
+			if( tries > 9 ) break;
 
-			//let maskrand = Math.sin( ( stablerand( stage ) * 0.1 + 0.1 ) * ( frame ) );
-			//let sparkage = (frame-boom)/(life);
-			//if( sparkage > maskrand ) x = -10;
-		}
+			let frame = (j / numWorks) % life;
+			let lifetime = (((j / numWorks)|0) / life)|0;
 
-		if( x < -1 || y < -1 || x > 1 || y > 1 )
+			frame = frame + 2 * life - advance * life / 2;
+			lifetime = lifetime + 2  + advance / 2;
+
+
+			// All together, was launched from ground.
+			let gx = stablerand( lifetime + 100 );
+			let gxl = stablerand( lifetime + 200 );
+			let gy = stablerand( lifetime ) - 1.0;
+
+			let coretime = frame;
+			if( coretime > boom ) coretime = boom;
+
+			let corex = gx * 0.3 + gxl * coretime * 0.002;
+			let corey = (coretime*coretime) * 0.00001 + coretime * .0011 * (gy-5) + 1.0;
+
+			if( frame < boom )
+			{
+				x = corex;
+				y = corey;
+			}
+			else
+			{
+				let srx = stablerand( stage + lifetime*30 );
+				let sry = stablerand( stage + lifetime*30 + 512 );
+				let srz = stablerand( stage + lifetime*30 + 1024 );
+				let norm = Math.sqrt( srx*srx+sry*sry+srz*srz );
+				srx /= norm;
+				sry /= norm;
+				corey += (frame-boom)*(frame-boom)*0.000004;
+				x = corex + srx*(frame-boom)*0.002;
+				y = corey + (sry - 1 ) * (frame-boom)*0.002;
+			}
+			advance++;
+		} while ( x < -1 || y < -1 || x > 1 || y > 1 )
+
+		if ( x < -1 || y < -1 || x > 1 || y > 1 )
 		{
 			arr[i+1] = 0;
 			arr[i+0] = 0;	
