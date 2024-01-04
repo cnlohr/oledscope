@@ -233,8 +233,8 @@ function fireworks( arr )
 	// Only state is this.place
 
 	const numWorks = 40;
-	const boom = 500;
-	const life = 1700;
+	const boom = 700;
+	const life = 3700;
 
 	let st = 0;
 	for( var i = 1|0; i < 254|0; i+= 2)
@@ -267,8 +267,8 @@ function fireworks( arr )
 			let coretime = frame;
 			if( coretime > boom ) coretime = boom;
 
-			let corex = gx * 0.3 + gxl * coretime * 0.002;
-			let corey = (coretime*coretime) * 0.00001 + coretime * .0011 * (gy-5) + 1.0;
+			let corex = gx * 0.3 + gxl * coretime * 0.0008;
+			let corey = (coretime*coretime) * 0.000005 + coretime * .001 * (gy-5) + 1.6;
 
 			if( frame < boom )
 			{
@@ -283,9 +283,9 @@ function fireworks( arr )
 				let norm = Math.sqrt( srx*srx+sry*sry+srz*srz );
 				srx /= norm;
 				sry /= norm;
-				corey += (frame-boom)*(frame-boom)*0.000004;
+				corey += (frame-boom)*(frame-boom)*0.0000015;
 				x = corex + srx*(frame-boom)*0.002;
-				y = corey + (sry - 1 ) * (frame-boom)*0.002;
+				y = corey + (sry - .5) * (frame-boom)*0.002;
 			}
 			advance++;
 		} while ( x < -1 || y < -1 || x > 1 || y > 1 )
