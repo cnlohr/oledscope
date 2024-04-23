@@ -236,7 +236,7 @@ async function sendLoop()
 		{
 			var thisTime = performance.now();
 			var deltaTime = thisTime - lastTime;
-			document.getElementById( "Status" ).innerHTML = (1270/(deltaTime)).toFixed(2) + " kPPS";
+			document.getElementById( "StatusPerf" ).innerHTML = (1270/(deltaTime)).toFixed(2) + " kPPS";
 			lastTime = thisTime;
 		}
 
@@ -316,7 +316,7 @@ Canned Functions:<BR>
 			<DIV ID="compileErrors" STYLE="color:red"></DIV>
 		</TD>
 		<TD WIDTH=50%>
-			<DIV ID="Status"></DIV>
+			<DIV ID="StatusPerf"></DIV>
 			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF"></CANVAS>
 			<BR>
 			Status Word Modifications:<BR>
