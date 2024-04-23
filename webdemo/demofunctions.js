@@ -235,7 +235,7 @@ function fireworks( arr )
 
 	const numWorks = 40;
 	const boom = 700;
-	const life = 3700;
+	const life = 1700;
 
 	let st = 0;
 	for( var i = 1|0; i < 254|0; i+= 2)

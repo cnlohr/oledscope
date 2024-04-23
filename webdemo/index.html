@@ -195,6 +195,8 @@ async function changeStatusWord(e, ww)
 async function sendLoop()
 {
 	var array = new Uint8Array(255);
+	var timingCheck = 0|0;
+	var lastTime = performance.now();
 	while( true )
 	{
 		var i = 0|0;
@@ -224,6 +226,16 @@ async function sendLoop()
 		{
 			sendReport = dev.sendFeatureReport( 0xAA, array )
 				.catch( (e) => { setStatusError( e ); dev = null; } );
+		}
+
+		timingCheck++;
+		if( timingCheck == 10 )
+		{
+			var thisTime = performance.now();
+			var deltaTime = thisTime - lastTime;
+			document.getElementById( "Status" ).innerHTML = (1270/(deltaTime)).toFixed(2) + " kPPS";
+			lastTime = thisTime;
+			timingCheck = 0;
 		}
 		
 		// Report is now sending.  We can render something.
@@ -307,6 +319,7 @@ Canned Functions:<BR>
 			<DIV ID="compileErrors" STYLE="color:red"></DIV>
 		</TD>
 		<TD WIDTH=50%>
+			<DIV ID="Status"></DIV>
 			<CANVAS ID="Canvas" WIDTH=512 HEIGHT=512 STYLE="border:1px solid #FFFFFF"></CANVAS>
 			<BR>
 			Status Word Modifications:<BR>
