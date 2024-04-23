@@ -195,8 +195,9 @@ async function changeStatusWord(e, ww)
 async function sendLoop()
 {
 	var array = new Uint8Array(255);
-	var timingCheck = 0|0;
+	var frameNo = 0|0;
 	var lastTime = performance.now();
+	let sendReport = null;
 	while( true )
 	{
 		var i = 0|0;
@@ -221,42 +222,38 @@ async function sendLoop()
 			}
 		}
 
-		let sendReport = null;
 		if( dev )
 		{
+			// Tricky - we can render things and compute the next frame, while we are sending the current frame.
+			if( sendReport )
+				await sendReport;
 			sendReport = dev.sendFeatureReport( 0xAA, array )
 				.catch( (e) => { setStatusError( e ); dev = null; } );
 		}
 
-		timingCheck++;
-		if( timingCheck == 10 )
+		frameNo++;
+		if( frameNo % 10 == 0 )
 		{
 			var thisTime = performance.now();
 			var deltaTime = thisTime - lastTime;
 			document.getElementById( "Status" ).innerHTML = (1270/(deltaTime)).toFixed(2) + " kPPS";
 			lastTime = thisTime;
-			timingCheck = 0;
 		}
-		
+
 		// Report is now sending.  We can render something.
 		const arrayScale = 4|0;
 		var canvas = document.getElementById("Canvas");
 		var ctx = canvas.getContext("2d");
-		ctx.fillStyle = "rgba(0,0,0,0.4)";
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		ctx.fillStyle = "rgba(255,255,255,0.4)";
-
+		if( ( frameNo % 2 ) == 0 )
+		{
+			ctx.fillStyle = "rgba(0,0,0,0.7)";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "rgba(255,255,255,0.6)";
+		}
 		for( var i = 1|0; i < 254|0; i+= 2|0 )
-		{
 			ctx.fillRect( array[i+1] * arrayScale, array[i+0] * arrayScale, arrayScale, arrayScale );
-		}
 
-		if( sendReport )
-		{
-			await sendReport;
-		}
-		else
+		if( !sendReport )
 		{
 			tryConnect();
 			const sleep = ms => new Promise(r => setTimeout(r, ms));
