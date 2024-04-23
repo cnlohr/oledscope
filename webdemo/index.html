@@ -60,7 +60,7 @@ function onLoad()
 
 	if( !navigator.hid )
 	{
-		setStatusError( "Browser does not support HID :(" );
+		setStatusError( "Browser does not support HID.  You can still play with the emulator with the canned functions below." );
 		document.getElementById( "connectButton" ).hidden = true;
 	}
 	else
