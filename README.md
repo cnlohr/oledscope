@@ -8,7 +8,7 @@ Soor (Görg Pflug), from my [Discord Server](https://discord.gg/CCeyWyZ) uncover
 
 Then, I noticed that newer 128x128 displays were coming out. And Soor(Görg Pflug)'s research went more in the direction of accelerated shape rendering [video](https://www.youtube.com/watch?v=MwNGKHWkvP8) [code](https://github.com/GoergPflug/ssd1306-Hardware3D) but I remained fascinated specifically with vector scopes.
 
-Another thing that came with the newer 128x128 displays was a new controller, the [SSD1327](https://cdn.sparkfun.com/assets/1/a/5/d/4/DS-15890-Zio_OLED.pdf) controller chip.  While the documentation made it abundantly clear that the chip could not use a 0 mux ratio, setting the register anyway showed that to be a lie.
+Another thing that came with the newer 128x128 displays was a new controller, the [SSD1327](https://cdn.sparkfun.com/assets/1/a/5/d/4/DS-15890-Zio_OLED.pdf) controller chip.  While the documentation made it abundantly clear that the chip could not use a 0 mux ratio, setting the register anyway showed that to be a lie.  **UPDATE** Spirit points out that the chip that is in use is probably an [SSH1107](https://www.displayfuture.com/Display/datasheet/controller/SH1107.pdf), not an SSD1327.  The register mapping makes a lot more sense for a chip like that.
 
 With this knowledge, I decided to set out and see if I could make a USB controlled scope out of this 10 cent processor and $4 screen.  For that story, feel free to read below. But, let's just say it was a success.
 
