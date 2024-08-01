@@ -196,7 +196,7 @@ function starfield( arr )
 {
 	if( !this.starfieldSetup )
 	{
-		this.starcount = 64;
+		this.starcount = 20;
 		this.place = 0|0;
 		this.starfieldSetup = true;
 		this.stars = [];
@@ -216,13 +216,13 @@ function starfield( arr )
 
 		x = star.x * (star.age+1);
 		y = star.y * (star.age+1);
-		if( x > 1 || y > 1 || x < -1 || y < -1 || ( star.x * star.x + star.y * star.y ) < .01 )
+		if( x > 1 || y > 1 || x < -1 || y < -1 || ( star.x * star.x + star.y * star.y ) < .001 )
 		{
 			star.x = stablerand(star.y+star.age);
 			star.y = stablerand(star.x+star.age+9999);
 			star.age = 0;
 		}
-		star.age+=0.02;
+		star.age+=0.01;
 		arr[i+1] = (x*60+ 64) & 0x7f;
 		arr[i+0] = (y*60 + 64) & 0x7f;	
 	}
