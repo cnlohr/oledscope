@@ -78,9 +78,9 @@ function clockTest( arr )
 		this.clockSetup = true;
 	}
 
-	const pxouter = 12;
-	const pxperdiv = 20;
-	const pxperhand = 20;
+	const pxouter = ((arr<5)?12:100)*globalValue;
+	const pxperdiv = 20*globalValue;
+	const pxperhand = 20*globalValue;
 	const totalpxo = pxouter + (12*pxperdiv) + 3 * pxperhand;
 	var today = new Date();
 	var seconds = today.getSeconds() + today.getMilliseconds()/1000.0;	
@@ -188,7 +188,7 @@ function streaktest( arr )
 	{
 		var j = this.place++;
 		arr[i+1] = (j) & 0x7f;
-		arr[i+0] = ((j>>7)*8) & 0x7f;	
+		arr[i+0] = ((j>>7)) & 0x7f;	
 	}
 }
 
@@ -233,7 +233,7 @@ function fireworks( arr )
 	// Only state is this.place
 	if( this.place === undefined ) this.place = 0;
 
-	const numWorks = 40;
+	const numWorks = globalValue;
 	const boom = 700;
 	const life = 1700;
 
@@ -325,5 +325,6 @@ function sigrand()
 	return Math.sqrt( -2.0 * Math.log( 1.0 - Math.random() ) ) * Math.cos( 2.0 * Math.PI * Math.random() );
 }
 
-demoFunctions = { juliaIIM, sirpinski, clockTest, streaktest, starfield, fireworks };
+demoFunctions = [ juliaIIM, sirpinski, clockTest, clockTest, streaktest, starfield, fireworks, fireworks ];
+demoValues = [ 0, 0, 1, 10, 1, 1, 40, 6 ];
 

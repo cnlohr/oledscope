@@ -15,6 +15,10 @@ const expectedProductName = "OLEDScope003";
 let dev = null;
 let populateFunction = null;
 let elapsedOK = false; // If user has crashing code, give them 2 seconds to recover on page load.
+let globalValue = 0;
+let transitionTime = 0;
+let runningID = 0;
+let numDemos = 0;
 
 function setStatus( msg )
 {
@@ -77,7 +81,7 @@ function onLoad()
 		});
 	}
 
-	setActiveFunction( localStorage.getItem( "drawFunction" ) );
+	setActiveFunction( localStorage.getItem( "drawFunction" ), globalValue );
 	
 	document.getElementById('DrawCode').addEventListener('keydown', function(e) {
 		if (e.key == 'Tab') {
@@ -94,13 +98,15 @@ function onLoad()
 		}
 	});
 
-	document.getElementById('DrawCode').addEventListener('input', function(e) { setActiveFunction( this.value ); } );
+	document.getElementById('DrawCode').addEventListener('input', function(e) { setActiveFunction( this.value, globalValue ); } );
 	
 	var demoFunctionList = "";
 	for( f in demoFunctions )
 	{
-		demoFunctionList += "<INPUT TYPE=SUBMIT onClick=\"setActiveFunction( " + f + " );\" VALUE='" + f + "'> ";
+		console.log( f );
+		demoFunctionList += "<INPUT TYPE=SUBMIT onClick=\"runningID = " + Number(f) + ";setActiveFunction( " + demoFunctions[f] + ", " + demoValues[f] + " );\" VALUE='" + demoFunctions[f].name + "(" + demoValues[f] + ")'> ";
 	}
+	numDemos = Number(f);
 	document.getElementById( "DemoFunctionList" ).innerHTML = demoFunctionList;
 	
 	document.getElementById('StatusWord').value = "ffffd5ff";
@@ -214,6 +220,10 @@ async function sendLoop()
 				handleCodeError( e );
 				populateFunction = null;
 			}
+			if( Date.now() - transitionTime > 5000.0 && document.getElementById( "autoMove" ).checked )
+			{
+				advanceToNextExample();
+			}
 		}
 		else
 		{
@@ -264,9 +274,17 @@ async function sendLoop()
 	}
 }
 
-function setActiveFunction( fn )
+function advanceToNextExample()
+{
+	runningID = (runningID+1) % (numDemos + 1);
+	console.log( runningID, numDemos );
+	setActiveFunction( demoFunctions[runningID], demoValues[runningID] );
+}
+
+function setActiveFunction( fn, value )
 {
 	localStorage.setItem( "drawFunction", fn );
+	transitionTime = Date.now();
 	if( fn === undefined || fn == null )
 	{
 		populateFunction = juliaIIM;
@@ -276,6 +294,7 @@ function setActiveFunction( fn )
 		var functionName = fn.toString();
 		functionName = functionName.substr('function '.length);
 		functionName = functionName.substr(0, functionName.indexOf('('));
+		globalValue = value;
 
 		document.getElementById( "compileErrors" ).innerHTML = "";
 		try
@@ -307,7 +326,7 @@ function setActiveFunction( fn )
 <TABLE><TR><TD><INPUT TYPE=SUBMIT onClick="reqConnect()" VALUE="Open Device" ID=connectButton></TD><TD><DIV ID=STATUS></DIV></TD></TR></TABLE>
 <BR>
 Canned Functions:<BR>
-<DIV ID=DemoFunctionList></DIV>
+<TABLE><TR><TD><SPAN><DIV ID=DemoFunctionList></DIV></TD><TD><label><INPUT TYPE=CHECKBOX ID=autoMove>Auto Move</LABEL></SPAN></TD></TR></TABLE>
 <BR>
 <TABLE WIDTH=100%>
 	<TR>
